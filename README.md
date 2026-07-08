@@ -1,5 +1,10 @@
 # FinanceRAG-Analyst
 
+![Python](https://img.shields.io/badge/Python-3.11-blue)
+![RAG](https://img.shields.io/badge/RAG-Hybrid-success)
+![FAISS](https://img.shields.io/badge/FAISS-Vector_Search-orange)
+![License](https://img.shields.io/badge/License-MIT-green)
+
 <p align="center">
   <img src="screenshots/FinRAG.png" width="100%">
 </p>
