@@ -35,7 +35,7 @@ MANIFEST
 # Installer logs
 pip-log.txt
 pip-delete-this-directory.txt
-
+nano .gitignore
 # Unit test / coverage reports
 htmlcov/
 .tox/
@@ -216,3 +216,31 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+
+# FinanceRAG local data and generated artifacts
+data/raw/
+data/processed/
+artifacts/embeddings/
+artifacts/indexes/
+artifacts/cache/
+
+# Serialized or generated model/index files
+*.pkl
+*.pickle
+*.faiss
+*.index
+*.npy
+*.npz
+
+# Local secrets and credentials
+.env
+.env.*
+!.env.example
+
+# macOS metadata
+.DS_Store
+*.parquet
+sec_filings_raw*.csv
+sec_filing_chunks*.csv
+chunk_metadata*
