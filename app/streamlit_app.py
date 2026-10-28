@@ -115,22 +115,6 @@ def ensure_runtime_available(project_dir):
 
 
 @st.cache_resource(show_spinner='Loading the research engine...')
-def get_service(project_dir):
-    ensure_runtime_available(Path(project_dir))
-    return FinanceRAGService(project_dir=Path(project_dir)), MAX_QUERY_LENGTH
-
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger('finance_rag.app')
-MAX_SESSION_QUERIES = 10
-
-# Load the provider key from Streamlit secrets without displaying it.
-try:
-    key = st.secrets.get('GROQ_API_KEY')
-    if key and not os.environ.get('GROQ_API_KEY'):
-        os.environ['GROQ_API_KEY'] = str(key)
-except Exception:
-    pass
-
 @st.cache_resource(show_spinner='Loading the research engine...')
 def get_service(project_dir):
     ensure_runtime_available(Path(project_dir))
@@ -171,8 +155,18 @@ with st.sidebar:
         }[x],
     )
     top_k = st.slider("Evidence chunks", min_value=3, max_value=10, value=5)
-    st.caption(f"Session query budget: {st.session_state.research_queries_used}/{MAX_SESSION_QUERIES} used.")
+    budget_status = st.empty()
 
+
+    st.divider()
+    st.markdown("**Built by Anish Kale**")
+    st.caption("Data Scientist")
+    st.caption("Open to conversations, collaborations & opportunities in tech and fintech")
+    st.caption("Built in SoCal")
+    st.markdown(
+        "[LinkedIn](https://www.linkedin.com/in/kaleanish) · "
+        "[Portfolio](https://www.anishkale.dev)"
+    )
 
 query = st.text_area(
     "What would you like to research?",
@@ -188,6 +182,8 @@ if st.button("Research filings", type="primary", use_container_width=True, disab
     elif filing_date.strip() and len(filing_date.strip()) != 10:
         st.warning("Enter the filing date as YYYY-MM-DD, or leave it blank.")
     else:
+        st.session_state.research_queries_used += 1
+        st.session_state.research_result = None
         try:
             with st.spinner("Searching filings and generating an evidence-grounded answer..."):
                 if "finance_rag_service" not in st.session_state:
@@ -207,10 +203,30 @@ if st.button("Research filings", type="primary", use_container_width=True, disab
                     ).to_dict()
                 )
         except Exception as exc:
-            st.error(f"Research failed: {exc}")
-            st.caption(
-                "Check the app logs and confirm the corpus files and API key are available."
-            )
+            logger.exception("Research request failed.")
+            category = getattr(exc, "category", None)
+
+            if category == "daily":
+                st.warning(
+                    "The research service has reached its current usage quota. "
+                    "Please try again later or check the provider's usage limits."
+                )
+            elif category == "temporary":
+                st.warning(
+                    "The research service is temporarily busy. "
+                    "Please wait a minute and try again."
+                )
+            else:
+                st.error(
+                    "We couldn't complete this research request. "
+                    "Please try again shortly."
+                )
+
+# Update the sidebar after counting the current attempt.
+budget_status.caption(
+    f"Session query budget: "
+    f"{st.session_state.research_queries_used}/{MAX_SESSION_QUERIES} used."
+)
 
 result = st.session_state.research_result
 
@@ -242,12 +258,6 @@ if result:
             "Citation validation did not confirm all labels. "
             "Check the source passages before relying on the answer."
         )
-
-    st.caption(
-        f"Provider: {result.get('provider', 'unknown')} · "
-        f"Model: {result.get('model', 'unknown')} · "
-        f"Policy: {result.get('policy_version', 'unknown')}"
-    )
 
     st.subheader("Retrieved filing evidence")
     sources = result.get("sources", [])

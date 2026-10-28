@@ -6,6 +6,8 @@ Provider/model settings are configurable through environment variables.
 
 from __future__ import annotations
 
+import logging
+
 import json
 import os
 import re
@@ -57,12 +59,15 @@ GENERATION_RESPONSE_FORMAT = {
 }
 
 
+logger = logging.getLogger(__name__)
+
+
 @dataclass
 class GenerationConfig:
     provider: str = "groq"
     model: str = "groq/openai/gpt-oss-120b"
     policy_version: str = "groq_gpt_oss_120b_v2"
-    max_output_tokens: int = 1536
+    max_output_tokens: int = 1024
     max_attempts: int = 3
     timeout_seconds: int = 90
 
@@ -79,7 +84,7 @@ class GenerationConfig:
                 "groq_gpt_oss_120b_v2",
             ),
             max_output_tokens=int(
-                os.getenv("FINRAG_MAX_OUTPUT_TOKENS", "1536")
+                os.getenv("FINRAG_MAX_OUTPUT_TOKENS", "1024")
             ),
             max_attempts=int(
                 os.getenv("FINRAG_MAX_GENERATION_ATTEMPTS", "3")
@@ -324,6 +329,51 @@ def _call_model(user_prompt: str, config: GenerationConfig) -> str:
     return content
 
 
+
+
+class GenerationRateLimitError(RuntimeError):
+    """Safe, user-displayable category for provider quota failures."""
+
+    def __init__(self, category):
+        self.category = category
+        if category == "daily":
+            message = "The provider's daily usage quota has been reached."
+        else:
+            message = "The provider is temporarily rate-limiting requests."
+        super().__init__(message)
+
+
+def _rate_limit_category(exc):
+    """Return 'daily', 'temporary', or None without exposing error details."""
+    message = str(exc).lower()
+    class_name = type(exc).__name__.lower()
+
+    daily_signals = (
+        "per day", "daily limit", "daily quota", "per-day",
+        "insufficient_quota", "quota exceeded", "quota exhausted",
+        "billing limit", "credits exhausted",
+    )
+    rate_signals = (
+        "ratelimit", "rate limit", "rate_limit",
+        "too many requests", "tokens per minute",
+        "requests per minute", "tokens per day",
+        "requests per day", "tpm", "rpm",
+    )
+
+    is_limit = (
+        any(signal in message for signal in rate_signals)
+        or "ratelimit" in class_name
+        or getattr(exc, "status_code", None) == 429
+        or getattr(exc, "status", None) == 429
+    )
+
+    if any(signal in message for signal in daily_signals):
+        return "daily"
+    if is_limit:
+        return "temporary"
+    return None
+
+
 def generate_answer(
     query: str,
     evidence: Any,
@@ -383,7 +433,29 @@ def generate_answer(
             }
         except Exception as exc:
             last_error = exc
+            category = _rate_limit_category(exc)
 
+            if category:
+                logger.warning(
+                    "Provider usage limit detected; category=%s. "
+                    "Stopping retries for this request.",
+                    category,
+                    exc_info=True,
+                )
+                raise GenerationRateLimitError(category) from exc
+
+            logger.warning(
+                "Generation attempt %s/%s failed (%s).",
+                attempt,
+                config.max_attempts,
+                type(exc).__name__,
+                exc_info=True,
+            )
+
+    logger.error(
+        "Answer generation failed after %s attempts.",
+        config.max_attempts,
+    )
     raise RuntimeError(
-        f"Generation failed after {config.max_attempts} attempts: {last_error}"
+        f"Answer generation failed after {config.max_attempts} attempts."
     ) from last_error
