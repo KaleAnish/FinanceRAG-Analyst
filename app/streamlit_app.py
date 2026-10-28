@@ -135,16 +135,38 @@ st.caption(
 
 with st.sidebar:
     st.header("Research filters")
-    ticker_input = st.text_input(
-        "Ticker (optional)",
-        placeholder="e.g. AAPL",
-        help="Leave blank to search across available companies.",
+    company_options = {
+        "All companies": None,
+        "AAPL — Apple": "AAPL",
+        "AMZN — Amazon": "AMZN",
+        "GOOGL — Alphabet": "GOOGL",
+        "MSFT — Microsoft": "MSFT",
+        "NVDA — NVIDIA": "NVDA",
+    }
+    selected_company = st.selectbox(
+        "Company / ticker",
+        options=list(company_options.keys()),
+        index=0,
+        help="Choose a company or leave All companies selected.",
     )
+    ticker_input = company_options[selected_company]
+    st.caption("More companies (coming soon!)")
     filing_date = st.text_input(
         "Filing date (optional)",
         placeholder="YYYY-MM-DD",
     )
-    form_type = st.selectbox("Filing type", ["10-K"])
+    filing_options = {
+        "10-K": "10-K",
+        "10-Q (coming soon!)": "10-Q",
+        "8-K (coming soon!)": "8-K",
+        "DEF 14A (coming soon!)": "DEF 14A",
+    }
+    selected_filing = st.selectbox(
+        "Filing type",
+        options=list(filing_options.keys()),
+        index=0,
+    )
+    form_type = filing_options[selected_filing]
     retrieval_method = st.selectbox(
         "Retrieval method",
         ["hybrid_rrf", "dense", "bm25"],
@@ -159,7 +181,7 @@ with st.sidebar:
 
 
     st.divider()
-    st.markdown("**Built by Anish Kale**")
+    st.markdown("**© 2026 Anish A. Kale**")
     st.caption("Data Scientist")
     st.caption("Open to conversations, collaborations & opportunities in tech and fintech")
     st.caption("Built in SoCal")
@@ -176,7 +198,12 @@ query = st.text_area(
     help=f"Maximum {MAX_QUERY_LENGTH} characters.",
 )
 
-if st.button("Research filings", type="primary", use_container_width=True, disabled=st.session_state.research_queries_used >= MAX_SESSION_QUERIES):
+if selected_filing != "10-K":
+    st.info(
+        "Only 10-K filings are currently supported. "
+        "Other filing types are coming soon!"
+    )
+elif st.button("Research filings", type="primary", use_container_width=True, disabled=st.session_state.research_queries_used >= MAX_SESSION_QUERIES):
     if not query.strip():
         st.warning("Enter a research question first.")
     elif filing_date.strip() and len(filing_date.strip()) != 10:
@@ -195,7 +222,7 @@ if st.button("Research filings", type="primary", use_container_width=True, disab
                 st.session_state.research_result = (
                     st.session_state.finance_rag_service.search(
                         query,
-                        ticker=ticker_input.strip() or None,
+                        ticker=ticker_input,
                         form_type=form_type,
                         filing_date=filing_date.strip() or None,
                         method=retrieval_method,
@@ -208,18 +235,31 @@ if st.button("Research filings", type="primary", use_container_width=True, disab
 
             if category == "daily":
                 st.warning(
-                    "The research service has reached its current usage quota. "
-                    "Please try again later or check the provider's usage limits."
+                    "The research service has reached its daily usage limit. "
+                    "Please try again later."
+                )
+            elif category == "quota":
+                st.warning(
+                    "The research provider has no available usage quota right now. "
+                    "Please try again later."
                 )
             elif category == "temporary":
                 st.warning(
-                    "The research service is temporarily busy. "
+                    "The research service is handling too many requests right now. "
                     "Please wait a minute and try again."
+                )
+            elif isinstance(exc, RuntimeError) and (
+                "supported input size" in str(exc).lower()
+            ):
+                st.warning(
+                    "This question and its supporting filing excerpts are too large "
+                    "for the model to process at once. Try a more focused question."
                 )
             else:
                 st.error(
                     "We couldn't complete this research request. "
-                    "Please try again shortly."
+                    "The service may be temporarily unavailable. Please try again "
+                    "shortly; if it keeps happening, try a shorter question."
                 )
 
 # Update the sidebar after counting the current attempt.
