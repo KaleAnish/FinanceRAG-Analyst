@@ -1,0 +1,35 @@
+{
+  "config_name": "heldout_evaluation_v2_executable",
+  "evaluation_status": "frozen_before_first_heldout_retrieval",
+  "retrieval_methods": [
+    "dense",
+    "bm25",
+    "hybrid_rrf"
+  ],
+  "dense_candidate_k": 30,
+  "bm25_candidate_k": 20,
+  "rrf_k": 30,
+  "final_top_k": 10,
+  "evaluation_pool_depth": 10,
+  "metadata_filters": [
+    "ticker",
+    "form_type",
+    "filing_date"
+  ],
+  "form_type": "10-K",
+  "year_interpretation": "Question year is annual-report year derived from report_date; it is mapped to the exact SEC filing_date.",
+  "expansion_applied": false,
+  "diversification_applied": false,
+  "expansion_diversification_note": "Removed before held-out execution because the inspected retrieval implementation does not implement these stages.",
+  "pool_deduplication_key": [
+    "query_id",
+    "corpus_row"
+  ],
+  "blind_review_seed": 20260806,
+  "relevance_scale": {
+    "0": "irrelevant",
+    "1": "partially_relevant",
+    "2": "directly_relevant"
+  },
+  "frozen_at_utc": "2026-08-06T08:27:37.693017+00:00"
+}

@@ -1,0 +1,60 @@
+# Secrets
+.env
+.env.*
+.streamlit/secrets.toml
+.streamlit/secrets.*.toml
+
+# Python
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+.venv/
+venv/
+
+# Local/editor files
+.DS_Store
+.vscode/
+
+# Logs and temporary outputs
+*.log
+tmp/
+temp/
+
+# Model/cache files
+.cache/
+.huggingface/
+
+# Frozen evaluation and generation artifacts
+artifacts/evaluation/
+artifacts/generation/
+
+# Runtime corpus and embeddings: host separately
+artifacts/runtime/
+
+# Local notebooks and data exports
+*.ipynb
+*.csv
+*.parquet
+*.npy
+
+# Credentials
+.env
+.env.*
+.streamlit/secrets.toml
+.streamlit/secrets.*.toml
+
+
+# Deployment bundles and local backups
+deployment/
+*.before_runtime_loader.bak
+
+# Secrets
+.env
+.env.*
+!.env.example
+.streamlit/secrets.toml
+
+# Runtime and evaluation artifacts
+artifacts/runtime/
+artifacts/evaluation/
+artifacts/generation/
