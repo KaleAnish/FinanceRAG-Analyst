@@ -337,40 +337,66 @@ class GenerationRateLimitError(RuntimeError):
     def __init__(self, category):
         self.category = category
         if category == "daily":
-            message = "The provider's daily usage quota has been reached."
+            message = "The provider's daily usage limit has been reached."
+        elif category == "quota":
+            message = "The provider's available usage quota has been reached."
         else:
             message = "The provider is temporarily rate-limiting requests."
         super().__init__(message)
 
 
-def _rate_limit_category(exc):
-    """Return 'daily', 'temporary', or None without exposing error details."""
+def _provider_error_category(exc):
+    """Classify common provider errors without exposing raw details."""
     message = str(exc).lower()
     class_name = type(exc).__name__.lower()
+    status_code = (
+        getattr(exc, "status_code", None)
+        or getattr(exc, "status", None)
+    )
 
+    # Explicit context/prompt-size errors should be classified first.
+    context_signals = (
+        "context_length_exceeded",
+        "context length", "maximum context", "context window",
+        "prompt is too long", "input is too long",
+        "too many tokens", "max_tokens_per_request",
+        "request too large",
+    )
+    if any(signal in message for signal in context_signals):
+        return "context"
+
+    # Only label a limit as daily when the error says so explicitly.
     daily_signals = (
         "per day", "daily limit", "daily quota", "per-day",
-        "insufficient_quota", "quota exceeded", "quota exhausted",
-        "billing limit", "credits exhausted",
+        "tokens per day", "requests per day", "daily token limit",
     )
-    rate_signals = (
-        "ratelimit", "rate limit", "rate_limit",
-        "too many requests", "tokens per minute",
-        "requests per minute", "tokens per day",
-        "requests per day", "tpm", "rpm",
-    )
-
-    is_limit = (
-        any(signal in message for signal in rate_signals)
-        or "ratelimit" in class_name
-        or getattr(exc, "status_code", None) == 429
-        or getattr(exc, "status", None) == 429
-    )
-
     if any(signal in message for signal in daily_signals):
         return "daily"
-    if is_limit:
+
+    temporary_signals = (
+        "ratelimit", "rate limit", "rate_limit",
+        "too many requests", "tokens per minute",
+        "requests per minute", "tpm", "rpm",
+    )
+    if (
+        any(signal in message for signal in temporary_signals)
+        or "ratelimit" in class_name
+        or status_code == 429
+    ):
+        # Generic insufficient quota / billing errors aren't necessarily daily.
+        if any(signal in message for signal in (
+            "insufficient_quota", "quota exceeded", "quota exhausted",
+            "billing limit", "credits exhausted",
+        )):
+            return "quota"
         return "temporary"
+
+    if any(signal in message for signal in (
+        "insufficient_quota", "quota exceeded", "quota exhausted",
+        "billing limit", "credits exhausted",
+    )):
+        return "quota"
+
     return None
 
 
@@ -433,16 +459,19 @@ def generate_answer(
             }
         except Exception as exc:
             last_error = exc
-            category = _rate_limit_category(exc)
+            category = _provider_error_category(exc)
 
             if category:
                 logger.warning(
-                    "Provider usage limit detected; category=%s. "
-                    "Stopping retries for this request.",
+                    "Provider request failure classified as %s; stopping retries.",
                     category,
                     exc_info=True,
                 )
-                raise GenerationRateLimitError(category) from exc
+                if category in {"daily", "temporary", "quota"}:
+                    raise GenerationRateLimitError(category) from exc
+                raise RuntimeError(
+                    "The research request exceeded the model's supported input size."
+                ) from exc
 
             logger.warning(
                 "Generation attempt %s/%s failed (%s).",
