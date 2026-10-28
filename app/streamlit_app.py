@@ -17,6 +17,11 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger('finance_rag.app')
 MAX_SESSION_QUERIES = 10
 
+if "research_queries_used" not in st.session_state:
+    st.session_state.research_queries_used = 0
+if "research_result" not in st.session_state:
+    st.session_state.research_result = None
+
 # Load the provider key from Streamlit secrets without displaying it.
 try:
     key = st.secrets.get('GROQ_API_KEY')
@@ -167,14 +172,7 @@ with st.sidebar:
     )
     top_k = st.slider("Evidence chunks", min_value=3, max_value=10, value=5)
     st.caption(f"Session query budget: {st.session_state.research_queries_used}/{MAX_SESSION_QUERIES} used.")
-    st.caption(f"Session query budget: {st.session_state.research_queries_used}/{MAX_SESSION_QUERIES} used.")
 
-if "research_result" not in st.session_state:
-    st.session_state.research_result = None
-if "research_queries_used" not in st.session_state:
-    st.session_state.research_queries_used = 0
-if "research_queries_used" not in st.session_state:
-    st.session_state.research_queries_used = 0
 
 query = st.text_area(
     "What would you like to research?",
