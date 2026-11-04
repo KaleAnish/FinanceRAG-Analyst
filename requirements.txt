@@ -6,3 +6,7 @@ sentence-transformers
 faiss-cpu
 rank-bm25
 litellm
+requests>=2.31,<3
+
+boto3>=1.35,<2
+python-dotenv>=1.0,<2

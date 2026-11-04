@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "finance-rag-analyst"
+version = "0.2.0"
+description = "Financial document intelligence and SEC EDGAR RAG platform"
+readme = "README.md"
+requires-python = ">=3.12"
+license = "MIT"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["finance_rag*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-ra"
