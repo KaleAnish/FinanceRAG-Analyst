@@ -1,0 +1,123 @@
+{
+  "audit_summary_snapshot": {
+    "duplicate_object_keys": 0,
+    "empty_object_keys": 0,
+    "invalid_sha256_values": 0,
+    "invalid_sizes": 0,
+    "inventory_duplicate_pairs": 0,
+    "inventory_pairs_missing_from_manifest": 0,
+    "inventory_rows": 22431,
+    "inventory_unique_pairs": 22431,
+    "manifest_duplicate_pairs": 0,
+    "manifest_non_downloaded_records": 0,
+    "manifest_rows": 22431,
+    "manifest_status_counts": {
+      "downloaded": 22431
+    },
+    "manifest_total_bytes": 32506926931,
+    "manifest_unique_object_keys": 22431,
+    "manifest_unique_pairs": 22431,
+    "missing_objects_csv": "data/ingestion/audit/missing_r2_objects.csv",
+    "missing_r2_objects": 0,
+    "orphan_objects_csv": "data/ingestion/audit/orphan_r2_objects.csv",
+    "orphan_r2_objects": 0,
+    "r2_object_count": 22431,
+    "r2_total_bytes": 32506926931,
+    "sha256_bytes_read": 32506926931,
+    "sha256_elapsed_seconds": 2041.6,
+    "sha256_errors": 0,
+    "sha256_mismatched": 0,
+    "sha256_objects_checked": 22431,
+    "sha256_passed": 22431,
+    "sha256_results_csv": "data/ingestion/audit/sha256_verification.csv",
+    "size_mismatches": 0,
+    "size_mismatches_csv": "data/ingestion/audit/size_mismatches.csv",
+    "unexpected_manifest_pairs": 0
+  },
+  "corpus": {
+    "description": "SEC EDGAR filing corpus for the S&P 500 issuer universe",
+    "download_manifest_row_count": 22431,
+    "expected_filing_count": 22431,
+    "inventory_row_count": 22431,
+    "r2_bucket": "finance-rag-corpus",
+    "r2_prefix": "raw/sec/",
+    "raw_object_bytes": 32506926931,
+    "raw_object_decimal_gb": 32.5069,
+    "raw_object_gib": 30.2744,
+    "sha256_verification_row_count": 22431
+  },
+  "integrity": {
+    "audit_result": "PASS",
+    "inventory_manifest_pair_mismatches": 0,
+    "missing_objects": 0,
+    "note": "Values reflect the completed full-corpus R2 audit. This freeze operation packages existing evidence; it does not rerun the remote checksum audit.",
+    "objects_checked": 22431,
+    "orphan_objects": 0,
+    "sha256_errors": 0,
+    "sha256_mismatched": 0,
+    "sha256_passed": 22431,
+    "size_mismatches": 0
+  },
+  "provenance": {
+    "discovery_windows": {
+      "10-K": "5 years",
+      "10-Q": "5 years",
+      "8-K": "2 years"
+    },
+    "filing_source": "U.S. Securities and Exchange Commission EDGAR",
+    "forms": [
+      "10-K",
+      "10-Q",
+      "8-K"
+    ],
+    "membership_source_caveat": "The constituent input was sourced from Wikipedia; do not describe membership as independently verified by S&P.",
+    "universe": "S&P 500 constituent input resolved against SEC ticker/CIK mapping"
+  },
+  "release_created_at_utc": "2026-11-04T21:32:53.910127+00:00",
+  "release_id": "raw-corpus-v1",
+  "release_status": "FROZEN",
+  "source_evidence": {
+    "audit_summary": {
+      "csv_rows": null,
+      "source_path": "data/ingestion/audit/corpus_audit_summary.json",
+      "source_sha256": "244fd06fa952a26e18000b4929a90db6a0090bda253c3a3409b7f15d67e65311",
+      "source_size_bytes": 1159
+    },
+    "download_manifest": {
+      "csv_rows": 22431,
+      "source_path": "data/ingestion/download_manifest.csv",
+      "source_sha256": "99cbe08857f19c3b345164a74e0fd4917fe4b44b309ef34943f0506ce3e199ff",
+      "source_size_bytes": 6827322
+    },
+    "filing_inventory": {
+      "csv_rows": 22431,
+      "source_path": "data/ingestion/filing_inventory_sp500.csv",
+      "source_sha256": "2f200e959c7b15be7d1238420eac9dab9aa39715142eac84ffaf0025624919ca",
+      "source_size_bytes": 5028303
+    },
+    "missing_objects": {
+      "csv_rows": 0,
+      "source_path": "data/ingestion/audit/missing_r2_objects.csv",
+      "source_sha256": "b22400aed9a9312c78d4b77f19499174529b41208d5497344e7ef87f4e5ecf52",
+      "source_size_bytes": 11
+    },
+    "orphan_objects": {
+      "csv_rows": 0,
+      "source_path": "data/ingestion/audit/orphan_r2_objects.csv",
+      "source_sha256": "b22400aed9a9312c78d4b77f19499174529b41208d5497344e7ef87f4e5ecf52",
+      "source_size_bytes": 11
+    },
+    "sha256_verification": {
+      "csv_rows": 22431,
+      "source_path": "data/ingestion/audit/sha256_verification.csv",
+      "source_sha256": "0deb95b4bf0d64298827fd39edf602dff9d23e3f1f15255cf6ba1d52c590e927",
+      "source_size_bytes": 4513211
+    },
+    "size_mismatches": {
+      "csv_rows": 0,
+      "source_path": "data/ingestion/audit/size_mismatches.csv",
+      "source_sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+      "source_size_bytes": 1
+    }
+  }
+}
