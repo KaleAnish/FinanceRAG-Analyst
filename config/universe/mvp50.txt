@@ -1,0 +1,64 @@
+# FinanceRAG runtime-v2 MVP universe: 50 large S&P 500 companies across sectors.
+# One ticker per line; '#' starts a comment. Tickers are resolved to SEC CIKs via
+# data/universe/securities.csv, so share-class aliases (GOOG/GOOGL) both work.
+# The ticker written here is the one stored on chunks and used in API filters.
+
+# Technology / communication
+AAPL
+MSFT
+NVDA
+GOOGL
+META
+AVGO
+ORCL
+CRM
+AMD
+ADBE
+INTC
+CSCO
+NFLX
+T
+VZ
+
+# Consumer
+AMZN
+TSLA
+WMT
+COST
+HD
+MCD
+NKE
+KO
+PEP
+PG
+DIS
+SBUX
+
+# Financials
+JPM
+BAC
+GS
+MS
+V
+MA
+BRK.B
+AXP
+BLK
+
+# Health care
+UNH
+LLY
+JNJ
+PFE
+MRK
+ABBV
+
+# Energy, industrials, utilities
+XOM
+CVX
+CAT
+BA
+GE
+UPS
+LMT
+NEE

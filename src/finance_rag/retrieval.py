@@ -2,13 +2,15 @@
 
 from pathlib import Path
 import json
+import math
+import os
 import re
 
 import faiss
 import numpy as np
 import pandas as pd
-from rank_bm25 import BM25Okapi
-from sentence_transformers import SentenceTransformer
+
+from .bm25_sparse import SparseBM25Okapi
 
 
 # Default to the checked-out project directory so local and hosted deployments work.
@@ -27,6 +29,25 @@ DEFAULT_RRF_K = 30
 DEFAULT_FINAL_TOP_K = 10
 EXPECTED_MODEL = "BAAI/bge-small-en-v1.5"
 
+RUNTIME_DIR_ENV = "FINANCE_RAG_RUNTIME_DIR"
+
+
+def resolve_runtime_dir(project_dir, runtime_dir=None):
+    """Explicit argument > FINANCE_RAG_RUNTIME_DIR > artifacts/runtime (v1)."""
+    chosen = runtime_dir or os.getenv(RUNTIME_DIR_ENV) or "artifacts/runtime"
+    chosen = Path(chosen)
+    return chosen if chosen.is_absolute() else Path(project_dir) / chosen
+
+
+def _as_list(value):
+    if value is None:
+        return None
+    if isinstance(value, str):
+        value = [value]
+    cleaned = [str(v).strip().upper() for v in value if v is not None and str(v).strip()]
+    return cleaned or None
+
+
 TOKEN_PATTERN = re.compile(r"[A-Za-z0-9]+(?:['.-][A-Za-z0-9]+)*")
 
 
@@ -38,9 +59,10 @@ def tokenize_for_bm25(text):
 class FinanceRAGRetriever:
     """Load the frozen corpus artifacts and expose dense, BM25, and RRF retrieval."""
 
-    def __init__(self, project_dir=PROJECT_DIR):
+    def __init__(self, project_dir=PROJECT_DIR, runtime_dir=None, embedding_model=None):
         self.project_dir = Path(project_dir)
-        runtime_dir = self.project_dir / "artifacts" / "runtime"
+        runtime_dir = resolve_runtime_dir(self.project_dir, runtime_dir)
+        self.runtime_dir = runtime_dir
         evaluation_dir = self.project_dir / "artifacts" / "evaluation"
 
         chunks_path = runtime_dir / "chunks_df.parquet"
@@ -77,17 +99,35 @@ class FinanceRAGRetriever:
             .dt.strftime("%Y-%m-%d")
         )
 
-        # Rebuild lexical and dense indexes from the saved canonical artifacts.
-        tokenized_corpus = [
-            tokenize_for_bm25(text) for text in self.chunks_df["text"].tolist()
-        ]
-        self.bm25_index = BM25Okapi(tokenized_corpus)
+        # v2 bundles ship a prebuilt sparse BM25 index; v1 bundles do not, so
+        # it is built in memory. Scores are bit-identical to rank_bm25 either way.
+        if SparseBM25Okapi.exists(runtime_dir):
+            self.bm25_index = SparseBM25Okapi.load(runtime_dir)
+            if self.bm25_index.corpus_size != len(self.chunks_df):
+                raise ValueError("BM25 index and chunk table row counts do not match.")
+            self.bm25_source = "prebuilt"
+        else:
+            tokenized_corpus = [
+                tokenize_for_bm25(text) for text in self.chunks_df["text"].tolist()
+            ]
+            self.bm25_index = SparseBM25Okapi.build(tokenized_corpus)
+            self.bm25_source = "rebuilt_in_memory"
 
         self.faiss_index = faiss.IndexFlatIP(self.embedding_dimensions)
         self.faiss_index.add(np.ascontiguousarray(self.embeddings, dtype=np.float32))
 
-        model_name = self.metadata["embedding_model_name"]
-        self.embedding_model = SentenceTransformer(model_name)
+        if embedding_model is None:
+            from sentence_transformers import SentenceTransformer
+            embedding_model = SentenceTransformer(self.metadata["embedding_model_name"])
+        self.embedding_model = embedding_model
+
+    @property
+    def available_tickers(self):
+        return sorted(self.corpus_tickers.unique().tolist())
+
+    @property
+    def available_form_types(self):
+        return sorted(self.corpus_form_types.unique().tolist())
 
     def _validate_artifacts(self):
         required_columns = {
@@ -158,14 +198,17 @@ class FinanceRAGRetriever:
 
         return vector
 
-    def resolve_candidate_rows(self, *, ticker=None, form_type=None, filing_date=None):
+    def resolve_candidate_rows(self, *, ticker=None, form_type=None, filing_date=None,
+                               start_date=None, end_date=None):
         mask = np.ones(len(self.chunks_df), dtype=bool)
 
-        if ticker is not None:
-            mask &= self.corpus_tickers.eq(str(ticker).strip().upper()).to_numpy()
+        tickers = _as_list(ticker)
+        if tickers is not None:
+            mask &= self.corpus_tickers.isin(tickers).to_numpy()
 
-        if form_type is not None:
-            mask &= self.corpus_form_types.eq(str(form_type).strip().upper()).to_numpy()
+        form_types = _as_list(form_type)
+        if form_types is not None:
+            mask &= self.corpus_form_types.isin(form_types).to_numpy()
 
         if filing_date is not None:
             normalized_date = pd.to_datetime(
@@ -173,11 +216,19 @@ class FinanceRAGRetriever:
             ).strftime("%Y-%m-%d")
             mask &= self.corpus_filing_dates.eq(normalized_date).to_numpy()
 
+        # ISO date strings compare correctly as strings.
+        if start_date is not None:
+            start = pd.to_datetime(start_date, errors="raise").strftime("%Y-%m-%d")
+            mask &= (self.corpus_filing_dates >= start).to_numpy()
+        if end_date is not None:
+            end = pd.to_datetime(end_date, errors="raise").strftime("%Y-%m-%d")
+            mask &= (self.corpus_filing_dates <= end).to_numpy()
+
         rows = np.flatnonzero(mask).astype(np.int64)
         if len(rows) == 0:
             raise ValueError(
                 "No corpus chunks matched the supplied metadata filters. "
-                "Check ticker, form type, and filing date."
+                "Check ticker, form type, and filing dates."
             )
         return rows
 
@@ -205,19 +256,22 @@ class FinanceRAGRetriever:
         return result.reset_index(drop=True)
 
     def retrieve_dense(
-        self, query, *, top_k=10, ticker=None, form_type=None, filing_date=None
+        self, query, *, top_k=10, ticker=None, form_type=None, filing_date=None,
+        start_date=None, end_date=None,
     ):
         if not 1 <= top_k <= len(self.chunks_df):
             raise ValueError(f"top_k must be between 1 and {len(self.chunks_df):,}.")
 
         query_vector = self.encode_query(query)
         filters_supplied = any(
-            value is not None for value in (ticker, form_type, filing_date)
+            value is not None
+            for value in (ticker, form_type, filing_date, start_date, end_date)
         )
 
         if filters_supplied:
             rows = self.resolve_candidate_rows(
-                ticker=ticker, form_type=form_type, filing_date=filing_date
+                ticker=ticker, form_type=form_type, filing_date=filing_date,
+                start_date=start_date, end_date=end_date,
             )
             scores = self.embeddings[rows] @ query_vector[0]
             positions = np.argsort(-scores, kind="stable")[:min(top_k, len(rows))]
@@ -233,13 +287,15 @@ class FinanceRAGRetriever:
         return self._construct_results(selected_rows, selected_scores, method=method)
 
     def retrieve_bm25(
-        self, query, *, top_k=10, ticker=None, form_type=None, filing_date=None
+        self, query, *, top_k=10, ticker=None, form_type=None, filing_date=None,
+        start_date=None, end_date=None,
     ):
         if not 1 <= top_k <= len(self.chunks_df):
             raise ValueError(f"top_k must be between 1 and {len(self.chunks_df):,}.")
 
         rows = self.resolve_candidate_rows(
-            ticker=ticker, form_type=form_type, filing_date=filing_date
+            ticker=ticker, form_type=form_type, filing_date=filing_date,
+            start_date=start_date, end_date=end_date,
         )
         scores_all = np.asarray(
             self.bm25_index.get_scores(tokenize_for_bm25(query)),
@@ -251,7 +307,8 @@ class FinanceRAGRetriever:
         selected_scores = scores[positions]
 
         filtered = any(
-            value is not None for value in (ticker, form_type, filing_date)
+            value is not None
+            for value in (ticker, form_type, filing_date, start_date, end_date)
         )
         method = "bm25_filtered" if filtered else "bm25"
         return self._construct_results(selected_rows, selected_scores, method=method)
@@ -267,6 +324,8 @@ class FinanceRAGRetriever:
         ticker=None,
         form_type=None,
         filing_date=None,
+        start_date=None,
+        end_date=None,
     ):
         if not 1 <= top_k <= len(self.chunks_df):
             raise ValueError(f"top_k must be between 1 and {len(self.chunks_df):,}.")
@@ -275,14 +334,10 @@ class FinanceRAGRetriever:
         if rrf_k <= 0:
             raise ValueError("rrf_k must be positive.")
 
-        dense = self.retrieve_dense(
-            query, top_k=dense_candidate_k, ticker=ticker,
-            form_type=form_type, filing_date=filing_date,
-        )
-        bm25 = self.retrieve_bm25(
-            query, top_k=bm25_candidate_k, ticker=ticker,
-            form_type=form_type, filing_date=filing_date,
-        )
+        filters = dict(ticker=ticker, form_type=form_type, filing_date=filing_date,
+                       start_date=start_date, end_date=end_date)
+        dense = self.retrieve_dense(query, top_k=dense_candidate_k, **filters)
+        bm25 = self.retrieve_bm25(query, top_k=bm25_candidate_k, **filters)
 
         dense_rank_map = {
             int(row.corpus_row): int(row.rank)
@@ -335,36 +390,71 @@ class FinanceRAGRetriever:
             ),
         )
 
+    def _search_one(self, query, *, method, top_k, **filters):
+        if method == "dense":
+            return self.retrieve_dense(query, top_k=top_k, **filters)
+        if method == "bm25":
+            return self.retrieve_bm25(query, top_k=top_k, **filters)
+        if method == "hybrid_rrf":
+            return self.retrieve_hybrid_rrf(
+                query,
+                top_k=top_k,
+                dense_candidate_k=max(self.config["dense_candidate_k"], top_k),
+                bm25_candidate_k=max(self.config["bm25_candidate_k"], top_k),
+                rrf_k=self.config["rrf_k"],
+                **filters,
+            )
+        raise ValueError("method must be 'dense', 'bm25', or 'hybrid_rrf'")
+
     def search(
         self,
         query,
         *,
         method="hybrid_rrf",
         ticker=None,
-        form_type="10-K",
+        form_type=None,
         filing_date=None,
+        start_date=None,
+        end_date=None,
         top_k=DEFAULT_FINAL_TOP_K,
     ):
-        """App-facing retrieval entry point."""
-        if method == "dense":
-            return self.retrieve_dense(
-                query, top_k=top_k, ticker=ticker,
-                form_type=form_type, filing_date=filing_date,
+        """App-facing retrieval entry point.
+
+        ``ticker`` may be one ticker or a list. With several tickers, evidence is
+        retrieved per company and interleaved, so a comparison question
+        ("NVDA vs AMD margins") gets evidence for every company instead of
+        whichever one dominates the global ranking.
+        """
+        filters = dict(form_type=form_type, filing_date=filing_date,
+                       start_date=start_date, end_date=end_date)
+        tickers = _as_list(ticker)
+
+        if tickers is None or len(tickers) == 1:
+            return self._search_one(query, method=method, top_k=top_k,
+                                    ticker=tickers, **filters)
+
+        per_ticker_k = max(1, math.ceil(top_k / len(tickers)))
+        per_ticker = []
+        for name in tickers:
+            try:
+                per_ticker.append(self._search_one(
+                    query, method=method, top_k=per_ticker_k, ticker=name, **filters))
+            except ValueError as exc:
+                if "No corpus chunks matched" not in str(exc):
+                    raise
+        if not per_ticker:
+            raise ValueError(
+                "No corpus chunks matched the supplied metadata filters. "
+                "Check ticker, form type, and filing dates."
             )
-        if method == "bm25":
-            return self.retrieve_bm25(
-                query, top_k=top_k, ticker=ticker,
-                form_type=form_type, filing_date=filing_date,
-            )
-        if method == "hybrid_rrf":
-            return self.retrieve_hybrid_rrf(
-                query,
-                top_k=top_k,
-                dense_candidate_k=self.config["dense_candidate_k"],
-                bm25_candidate_k=self.config["bm25_candidate_k"],
-                rrf_k=self.config["rrf_k"],
-                ticker=ticker,
-                form_type=form_type,
-                filing_date=filing_date,
-            )
-        raise ValueError("method must be 'dense', 'bm25', or 'hybrid_rrf'")
+
+        # Round-robin by within-company rank: A1, B1, A2, B2, ...
+        frames = []
+        for position in range(per_ticker_k):
+            for result in per_ticker:
+                if position < len(result):
+                    frames.append(result.iloc[[position]])
+        merged = pd.concat(frames, ignore_index=True).head(top_k)
+        merged["rank"] = np.arange(1, len(merged) + 1, dtype=np.int64)
+        merged["retrieval_method"] = merged["retrieval_method"].astype(str) + "_multi_ticker"
+        return merged

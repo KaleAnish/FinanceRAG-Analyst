@@ -4,6 +4,8 @@ import re
 from typing import Any
 
 MAX_QUERY_LENGTH = 1200
+MAX_TICKERS = 5
+SUPPORTED_FORM_TYPES = {"10-K", "10-Q", "8-K"}
 TICKER_PATTERN = re.compile(r'^[A-Z0-9][A-Z0-9.-]{0,9}$')
 
 from .retrieval import FinanceRAGRetriever
@@ -54,11 +56,13 @@ class FinanceRAGService:
         self,
         query: str,
         *,
-        ticker: str | None = None,
-        form_type: str = "10-K",
+        ticker: str | list[str] | None = None,
+        form_type: str | None = None,
         filing_date: str | None = None,
         method: str = "hybrid_rrf",
         top_k: int = 5,
+        start_date: str | None = None,
+        end_date: str | None = None,
     ) -> ResearchResponse:
         if not isinstance(query, str):
             raise ValueError("Enter a research question.")
@@ -71,22 +75,42 @@ class FinanceRAGService:
             raise ValueError("Unsupported retrieval method.")
         if isinstance(top_k, bool) or not isinstance(top_k, int) or not 1 <= top_k <= 10:
             raise ValueError("Evidence chunks must be an integer between 1 and 10.")
-        if form_type not in {"10-K"}:
+        if form_type is not None and form_type not in SUPPORTED_FORM_TYPES:
             raise ValueError("Unsupported filing type.")
 
-        clean_ticker = None
-        if ticker is not None and str(ticker).strip():
-            clean_ticker = str(ticker).strip().upper()
-            if not TICKER_PATTERN.fullmatch(clean_ticker):
+        raw_tickers = [ticker] if isinstance(ticker, str) or ticker is None else list(ticker)
+        clean_tickers = []
+        for value in raw_tickers:
+            if value is None or not str(value).strip():
+                continue
+            value = str(value).strip().upper()
+            if not TICKER_PATTERN.fullmatch(value):
                 raise ValueError("Enter a valid ticker using letters, numbers, dots, or hyphens.")
+            if value not in clean_tickers:
+                clean_tickers.append(value)
+        if len(clean_tickers) > MAX_TICKERS:
+            raise ValueError(f"Compare at most {MAX_TICKERS} companies at once.")
+        clean_ticker = (
+            None if not clean_tickers
+            else clean_tickers[0] if len(clean_tickers) == 1
+            else clean_tickers
+        )
 
-        clean_filing_date = None
-        if filing_date is not None and str(filing_date).strip():
-            clean_filing_date = str(filing_date).strip()
+        def _date(value, label):
+            if value is None or not str(value).strip():
+                return None
+            value = str(value).strip()
             try:
-                datetime.strptime(clean_filing_date, "%Y-%m-%d")
+                datetime.strptime(value, "%Y-%m-%d")
             except ValueError:
-                raise ValueError("Enter the filing date as YYYY-MM-DD.") from None
+                raise ValueError(f"Enter the {label} as YYYY-MM-DD.") from None
+            return value
+
+        clean_filing_date = _date(filing_date, "filing date")
+        clean_start = _date(start_date, "start date")
+        clean_end = _date(end_date, "end date")
+        if clean_start and clean_end and clean_start > clean_end:
+            raise ValueError("The start date must be on or before the end date.")
 
         evidence = self.retriever.search(
             query,
@@ -94,6 +118,8 @@ class FinanceRAGService:
             ticker=clean_ticker,
             form_type=form_type,
             filing_date=clean_filing_date,
+            start_date=clean_start,
+            end_date=clean_end,
             top_k=top_k,
         )
 

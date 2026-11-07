@@ -12,6 +12,7 @@ from pydantic import (
     ConfigDict,
     Field,
     field_validator,
+    model_validator,
 )
 
 logger = logging.getLogger(__name__)
@@ -24,18 +25,58 @@ PROJECT_DIR = Path(
 )
 
 
+TICKER_REGEX = r"^[A-Za-z0-9][A-Za-z0-9.-]{0,9}$"
+MAX_TICKERS = 5
+
+
 class ResearchRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     query: str = Field(min_length=1, max_length=1200)
-    ticker: str | None = Field(
-        default=None,
-        pattern=r"^[A-Za-z0-9][A-Za-z0-9.-]{0,9}$",
-    )
-    form_type: Literal["10-K"] = "10-K"
+    ticker: str | None = Field(default=None, pattern=TICKER_REGEX)
+    tickers: list[str] | None = Field(default=None, min_length=1, max_length=MAX_TICKERS)
+    form_type: Literal["10-K", "10-Q", "8-K"] | None = None
     filing_date: date | None = None
+    start_date: date | None = None
+    end_date: date | None = None
     method: Literal["hybrid_rrf", "dense", "bm25"] = "hybrid_rrf"
     top_k: int = Field(default=5, ge=1, le=10)
+
+    @field_validator("tickers")
+    @classmethod
+    def validate_tickers(cls, value):
+        if value is None:
+            return value
+        import re
+        cleaned = []
+        for item in value:
+            item = str(item).strip()
+            if not re.fullmatch(TICKER_REGEX, item):
+                raise ValueError(f"Invalid ticker: {item!r}")
+            if item.upper() not in cleaned:
+                cleaned.append(item.upper())
+        return cleaned
+
+    @model_validator(mode="after")
+    def validate_combination(self):
+        if self.ticker and self.tickers:
+            raise ValueError("Use either 'ticker' or 'tickers', not both.")
+        if self.start_date and self.end_date and self.start_date > self.end_date:
+            raise ValueError("start_date must be on or before end_date.")
+        return self
+
+    def ticker_filter(self):
+        """None, one ticker string, or a list for multi-company questions."""
+        if self.tickers:
+            return self.tickers if len(self.tickers) > 1 else self.tickers[0]
+        return self.ticker.upper() if self.ticker else None
+
+    def date_filters(self):
+        return {
+            "filing_date": self.filing_date.isoformat() if self.filing_date else None,
+            "start_date": self.start_date.isoformat() if self.start_date else None,
+            "end_date": self.end_date.isoformat() if self.end_date else None,
+        }
 
     @field_validator("query")
     @classmethod
@@ -122,7 +163,7 @@ def create_app(service_factory=None):
 
     application = FastAPI(
         title="FinanceRAG Analyst API",
-        version="0.1.0",
+        version="0.2.0",
         description="Grounded financial research over SEC filings.",
         lifespan=lifespan,
     )
@@ -145,12 +186,35 @@ def create_app(service_factory=None):
     @application.get("/ready")
     def ready():
         if application.state.service is None:
+            error = application.state.startup_error
             raise HTTPException(
                 status_code=503,
-                detail="FinanceRAG service is not ready.",
+                detail={
+                    "status": "not_ready",
+                    # Type only: messages can contain paths or provider details.
+                    "startup_error": type(error).__name__ if error else None,
+                },
             )
 
         return {"status": "ready"}
+
+    @application.get("/v1/corpus")
+    def corpus():
+        """What the loaded runtime bundle covers (for UI pickers)."""
+        retriever = get_service().retriever
+        info = {
+            "tickers": list(getattr(retriever, "available_tickers", [])),
+            "form_types": list(getattr(retriever, "available_form_types", [])),
+        }
+        chunks = getattr(retriever, "chunks_df", None)
+        if chunks is not None:
+            info["chunks"] = int(len(chunks))
+            info["documents"] = int(chunks["document_id"].nunique())
+            info["filing_date_min"] = str(chunks["filing_date"].min())
+            info["filing_date_max"] = str(chunks["filing_date"].max())
+        metadata = getattr(retriever, "metadata", None) or {}
+        info["runtime_version"] = metadata.get("runtime_version", "runtime-v1")
+        return info
 
     @application.post("/v1/search")
     def search(request: ResearchRequest):
@@ -160,14 +224,10 @@ def create_app(service_factory=None):
             evidence = service.retriever.search(
                 request.query,
                 method=request.method,
-                ticker=request.ticker.upper() if request.ticker else None,
+                ticker=request.ticker_filter(),
                 form_type=request.form_type,
-                filing_date=(
-                    request.filing_date.isoformat()
-                    if request.filing_date
-                    else None
-                ),
                 top_k=request.top_k,
+                **request.date_filters(),
             )
 
             sources = _retrieval_records(evidence)
@@ -200,15 +260,11 @@ def create_app(service_factory=None):
         try:
             result = service.search(
                 request.query,
-                ticker=request.ticker,
+                ticker=request.ticker_filter(),
                 form_type=request.form_type,
-                filing_date=(
-                    request.filing_date.isoformat()
-                    if request.filing_date
-                    else None
-                ),
                 method=request.method,
                 top_k=request.top_k,
+                **request.date_filters(),
             )
 
             return result.to_dict()
