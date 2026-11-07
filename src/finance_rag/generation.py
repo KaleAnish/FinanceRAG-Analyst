@@ -251,7 +251,13 @@ def validate_citations(record: dict, generation: dict) -> dict:
         str(item["citation_label"])
         for item in record["selected_evidence"]
     }
-    cited_labels = re.findall(r"\[(S\d+)\]", generation["answer"])
+    cited_labels = [
+        label
+        for group in re.findall(r"\[(S\d+(?:\s*[,;]\s*S\d+)*)\]", generation["answer"])
+        for label in re.split(r"\s*[,;]\s*", group)
+    ]
+    if not cited_labels and not generation["abstained"]:
+        logger.warning("Uncited answer rejected: %.300s", generation["answer"])
     invalid_labels = sorted(set(cited_labels) - valid_labels)
 
     checks = {
