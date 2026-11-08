@@ -59,6 +59,13 @@ GENERATION_RESPONSE_FORMAT = {
 }
 
 
+CITATION_RETRY_NOTE = (
+    "\n\nIMPORTANT: Your previous answer was rejected because it contained "
+    "no citation labels. Every factual sentence must end with one or more "
+    "labels from the evidence headers, for example [S1] or [S1][S2]."
+)
+
+
 logger = logging.getLogger(__name__)
 
 
@@ -449,6 +456,7 @@ def generate_answer(
 
             # Do not silently accept unsupported citation labels.
             if not citation_validation["citations_valid"]:
+                user_prompt = build_user_prompt(record) + CITATION_RETRY_NOTE
                 raise ValueError(
                     "Citation validation failed: "
                     f"{citation_validation['validation_checks']}; "
