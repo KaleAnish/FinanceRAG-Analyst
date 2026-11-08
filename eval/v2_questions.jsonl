@@ -1,0 +1,50 @@
+{"qid": "K01", "type": "10k_risk_business", "tickers": ["AAPL"], "question": "What risks does Apple disclose about its reliance on outsourcing partners and single-source suppliers for manufacturing?", "answerable": true}
+{"qid": "K02", "type": "10k_risk_business", "tickers": ["META"], "question": "What regulatory and data privacy risks in the European Union does Meta describe?", "answerable": true}
+{"qid": "K03", "type": "10k_risk_business", "tickers": ["ADBE"], "question": "How does Adobe describe competitive risks from generative AI and new market entrants?", "answerable": true}
+{"qid": "K04", "type": "10k_risk_business", "tickers": ["NFLX"], "question": "How does Netflix account for and amortize its content assets?", "answerable": true}
+{"qid": "K05", "type": "10k_risk_business", "tickers": ["TSLA"], "question": "What risks does Tesla disclose about its dependence on Elon Musk and other key personnel?", "answerable": true}
+{"qid": "K06", "type": "10k_risk_business", "tickers": ["BRK.B"], "question": "How does Berkshire Hathaway describe its exposure to catastrophe losses in its insurance businesses?", "answerable": true}
+{"qid": "K07", "type": "10k_risk_business", "tickers": ["LLY"], "question": "What does Eli Lilly say about manufacturing capacity and supply constraints for its incretin medicines such as Mounjaro and Zepbound?", "answerable": true}
+{"qid": "K08", "type": "10k_risk_business", "tickers": ["JNJ"], "question": "What does Johnson & Johnson disclose about talc-related litigation?", "answerable": true}
+{"qid": "K09", "type": "10k_risk_business", "tickers": ["ABBV"], "question": "How has biosimilar competition affected AbbVie's Humira revenue?", "answerable": true}
+{"qid": "K10", "type": "10k_risk_business", "tickers": ["UPS"], "question": "What does UPS disclose about its labor agreement with the Teamsters and related risks?", "answerable": true}
+{"qid": "K11", "type": "10k_risk_business", "tickers": ["NEE"], "question": "What regulatory risks does NextEra Energy describe for its utility operations and rate setting?", "answerable": true}
+{"qid": "K12", "type": "10k_risk_business", "tickers": ["CSCO"], "question": "What supply chain and component shortage risks does Cisco describe?", "answerable": true}
+{"qid": "K13", "type": "10k_risk_business", "tickers": ["MCD"], "question": "What risks does McDonald's describe related to its franchise business model and franchisee relationships?", "answerable": true}
+{"qid": "K14", "type": "10k_risk_business", "tickers": ["PG"], "question": "How does Procter & Gamble describe the impact of commodity and input cost changes on its business?", "answerable": true}
+{"qid": "K15", "type": "10k_risk_business", "tickers": ["BLK"], "question": "How does BlackRock describe the dependence of its revenue on assets under management and market levels?", "answerable": true}
+{"qid": "Q01", "type": "10q_quarterly", "tickers": ["ORCL"], "question": "How have Oracle's remaining performance obligations changed in recent quarters?", "answerable": true}
+{"qid": "Q02", "type": "10q_quarterly", "tickers": ["CRM"], "question": "How did Salesforce's subscription and support revenue change in its recent quarterly results?", "answerable": true}
+{"qid": "Q03", "type": "10q_quarterly", "tickers": ["AMZN"], "question": "How has the AWS segment's operating income changed in Amazon's recent quarters?", "answerable": true}
+{"qid": "Q04", "type": "10q_quarterly", "tickers": ["WMT"], "question": "How has Walmart's eCommerce sales growth trended in recent quarters?", "answerable": true}
+{"qid": "Q05", "type": "10q_quarterly", "tickers": ["COST"], "question": "How did Costco's membership fee income change in recent quarters and why?", "answerable": true}
+{"qid": "Q06", "type": "10q_quarterly", "tickers": ["HD"], "question": "What drove changes in Home Depot's comparable sales in recent quarters?", "answerable": true}
+{"qid": "Q07", "type": "10q_quarterly", "tickers": ["GS"], "question": "How did Goldman Sachs' investment banking fees change in recent quarters?", "answerable": true}
+{"qid": "Q08", "type": "10q_quarterly", "tickers": ["MS"], "question": "How have Morgan Stanley's wealth management net new assets changed in recent quarters?", "answerable": true}
+{"qid": "Q09", "type": "10q_quarterly", "tickers": ["AXP"], "question": "How has American Express's provision for credit losses changed in recent quarters?", "answerable": true}
+{"qid": "Q10", "type": "10q_quarterly", "tickers": ["CVX"], "question": "How has Chevron's upstream oil and gas production changed in recent quarters?", "answerable": true}
+{"qid": "Q11", "type": "10q_quarterly", "tickers": ["CAT"], "question": "How have changes in dealer inventories affected Caterpillar's sales in recent quarters?", "answerable": true}
+{"qid": "Q12", "type": "10q_quarterly", "tickers": ["AAPL"], "question": "How has Apple's Services net sales changed in recent quarters?", "answerable": true}
+{"qid": "E01", "type": "8k_event", "tickers": ["DIS"], "question": "What CEO change did Disney announce, and who became chief executive?", "answerable": true}
+{"qid": "E02", "type": "8k_event", "tickers": ["SBUX"], "question": "What chief executive officer changes has Starbucks announced?", "answerable": true}
+{"qid": "E03", "type": "8k_event", "tickers": ["NKE"], "question": "Who did Nike appoint as President and CEO, and what happened to the previous CEO?", "answerable": true}
+{"qid": "E04", "type": "8k_event", "tickers": ["INTC"], "question": "What leadership changes did Intel report regarding its chief executive officer?", "answerable": true}
+{"qid": "E05", "type": "8k_event", "tickers": ["AVGO"], "question": "What did Broadcom report about completing its acquisition of VMware?", "answerable": true}
+{"qid": "E06", "type": "8k_event", "tickers": ["XOM"], "question": "What did ExxonMobil report about its merger with Pioneer Natural Resources?", "answerable": true}
+{"qid": "E07", "type": "8k_event", "tickers": ["GE"], "question": "What did GE report about the separation or spin-off of its businesses?", "answerable": true}
+{"qid": "E08", "type": "8k_event", "tickers": ["UNH"], "question": "What chief executive officer change did UnitedHealth Group report?", "answerable": true}
+{"qid": "C01", "type": "comparison", "tickers": ["NVDA", "AMD"], "question": "Compare the drivers of data center revenue growth at NVIDIA and AMD.", "answerable": true}
+{"qid": "C02", "type": "comparison", "tickers": ["JPM", "BAC"], "question": "Compare what drove changes in net interest income at JPMorgan Chase and Bank of America.", "answerable": true}
+{"qid": "C03", "type": "comparison", "tickers": ["V", "MA"], "question": "Compare how Visa and Mastercard describe trends in cross-border payment volume.", "answerable": true}
+{"qid": "C04", "type": "comparison", "tickers": ["KO", "PEP"], "question": "Compare how Coca-Cola and PepsiCo describe the effects of pricing and volume on revenue.", "answerable": true}
+{"qid": "C05", "type": "comparison", "tickers": ["MSFT", "GOOGL"], "question": "Compare Microsoft's and Alphabet's disclosures about capital expenditures for AI and data center infrastructure.", "answerable": true}
+{"qid": "C06", "type": "comparison", "tickers": ["PFE", "MRK"], "question": "Compare how Pfizer and Merck describe risks from patent expirations and loss of exclusivity.", "answerable": true}
+{"qid": "C07", "type": "comparison", "tickers": ["T", "VZ"], "question": "Compare how AT&T and Verizon describe wireless subscriber growth and churn.", "answerable": true}
+{"qid": "C08", "type": "comparison", "tickers": ["LMT", "BA"], "question": "Compare how Lockheed Martin and Boeing describe their backlog.", "answerable": true}
+{"qid": "U01", "type": "unanswerable", "tickers": ["AAPL"], "question": "What revenue does Apple forecast for fiscal year 2030?", "answerable": false}
+{"qid": "U02", "type": "unanswerable", "tickers": ["TSLA"], "question": "What will Tesla's stock price be at the end of next year?", "answerable": false}
+{"qid": "U03", "type": "unanswerable", "tickers": ["MSFT"], "question": "What is the internal codename of Microsoft's Xbox console planned for 2028?", "answerable": false}
+{"qid": "U04", "type": "unanswerable", "tickers": ["COST"], "question": "How many employees does Costco plan to hire in 2031?", "answerable": false}
+{"qid": "U05", "type": "unanswerable", "tickers": ["NFLX"], "question": "How many paid subscribers will Netflix have in 2029?", "answerable": false}
+{"qid": "U06", "type": "unanswerable", "tickers": ["KO"], "question": "What are the exact ingredients and proportions of Coca-Cola's secret formula?", "answerable": false}
+{"qid": "U07", "type": "unanswerable", "tickers": ["JPM"], "question": "What interest rate will the Federal Reserve set at its next meeting according to JPMorgan's filings?", "answerable": false}

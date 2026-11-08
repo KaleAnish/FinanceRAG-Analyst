@@ -1,0 +1,8 @@
+{
+  "audit_items": 44,
+  "exact_agreement": 0.6136,
+  "weighted_kappa_graded": 0.6517,
+  "kappa_binary": 0.8398,
+  "interpretation_graded": "substantial",
+  "interpretation_binary": "almost perfect"
+}

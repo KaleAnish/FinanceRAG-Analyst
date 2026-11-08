@@ -6,7 +6,12 @@ from pathlib import Path
 from typing import Literal
 
 import pandas as pd
-from fastapi import FastAPI, HTTPException
+import threading
+
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
+
+from .rate_limit import SlidingWindowLimiter, client_ip
 from pydantic import (
     BaseModel,
     ConfigDict,
@@ -152,6 +157,12 @@ def create_app(service_factory=None):
                 from .app_service import FinanceRAGService
                 factory = FinanceRAGService
 
+            remote_prefix = os.getenv("FINANCE_RAG_RUNTIME_R2_PREFIX")
+            if remote_prefix and service_factory is None:
+                from .retrieval import resolve_runtime_dir
+                from .runtime_remote import ensure_runtime
+                ensure_runtime(remote_prefix, resolve_runtime_dir(PROJECT_DIR))
+
             app.state.service = factory(project_dir=PROJECT_DIR)
             logger.info("FinanceRAG service initialized.")
 
@@ -167,6 +178,38 @@ def create_app(service_factory=None):
         description="Grounded financial research over SEC filings.",
         lifespan=lifespan,
     )
+
+    origins = [o.strip() for o in os.getenv("ALLOWED_ORIGINS", "").split(",") if o.strip()]
+    origin_regex = os.getenv("ALLOWED_ORIGIN_REGEX") or None
+    if origins or origin_regex:
+        application.add_middleware(
+            CORSMiddleware,
+            allow_origins=origins,
+            allow_origin_regex=origin_regex,
+            allow_methods=["GET", "POST", "OPTIONS"],
+            allow_headers=["Content-Type"],
+            max_age=600,
+        )
+
+    ask_limiter = SlidingWindowLimiter(
+        per_minute=int(os.getenv("ASK_LIMIT_PER_MINUTE", "3")),
+        per_day=int(os.getenv("ASK_LIMIT_PER_DAY", "60")),
+    )
+    search_limiter = SlidingWindowLimiter(
+        per_minute=int(os.getenv("SEARCH_LIMIT_PER_MINUTE", "30")),
+        per_day=int(os.getenv("SEARCH_LIMIT_PER_DAY", "1000")),
+    )
+    # One LLM call at a time: the free Groq tier is shared by every visitor.
+    generation_slot = threading.Semaphore(1)
+
+    def enforce(limiter, http_request, what):
+        retry_after = limiter.check(client_ip(http_request))
+        if retry_after:
+            raise HTTPException(
+                status_code=429,
+                detail=f"Too many {what} requests. Try again in {retry_after}s.",
+                headers={"Retry-After": str(retry_after)},
+            )
 
     def get_service():
         service = application.state.service
@@ -217,7 +260,8 @@ def create_app(service_factory=None):
         return info
 
     @application.post("/v1/search")
-    def search(request: ResearchRequest):
+    def search(request: ResearchRequest, http_request: Request):
+        enforce(search_limiter, http_request, "search")
         service = get_service()
 
         try:
@@ -254,9 +298,16 @@ def create_app(service_factory=None):
             ) from exc
 
     @application.post("/v1/ask")
-    def ask(request: ResearchRequest):
+    def ask(request: ResearchRequest, http_request: Request):
+        enforce(ask_limiter, http_request, "question")
         service = get_service()
 
+        if not generation_slot.acquire(timeout=45):
+            raise HTTPException(
+                status_code=429,
+                detail="The model is busy answering another question. Try again in 30s.",
+                headers={"Retry-After": "30"},
+            )
         try:
             result = service.search(
                 request.query,
@@ -276,12 +327,23 @@ def create_app(service_factory=None):
             ) from exc
 
         except Exception as exc:
+            if type(exc).__name__ == "GenerationRateLimitError":
+                logger.warning("Provider rate limit: %s", exc)
+                raise HTTPException(
+                    status_code=429,
+                    detail="The model's free tier is rate-limited. Try again in about 30s.",
+                    headers={"Retry-After": "30"},
+                ) from exc
+
             logger.exception("Grounded answer request failed.")
 
             raise HTTPException(
                 status_code=500,
                 detail="An internal research error occurred.",
             ) from exc
+
+        finally:
+            generation_slot.release()
 
     return application
 

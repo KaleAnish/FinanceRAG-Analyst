@@ -138,10 +138,11 @@ class FinanceRAGService:
 
         result = generate_answer(query, evidence, config=self.config)
 
-        # Keep source metadata for the UI. Do not expose full chunk text by default.
+        # Source metadata plus the passage text, so the UI can show exactly
+        # what each citation points to (chunks are capped at 480 tokens).
         source_columns = [
             "chunk_id", "ticker", "company", "form_type",
-            "filing_date", "document_id", "source_url", "rank",
+            "filing_date", "document_id", "source_url", "rank", "text",
         ]
         sources = []
         for _, row in evidence.iterrows():

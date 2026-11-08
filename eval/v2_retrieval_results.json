@@ -1,0 +1,171 @@
+{
+  "k": 5,
+  "questions": 43,
+  "judged": 444,
+  "grade_counts": {
+    "3": 160,
+    "2": 139,
+    "0": 76,
+    "1": 69
+  },
+  "latency_seconds": {
+    "dense": {
+      "0.5": 0.1699,
+      "0.95": 6.7079
+    },
+    "bm25": {
+      "0.5": 0.0789,
+      "0.95": 0.7836
+    },
+    "hybrid_rrf": {
+      "0.5": 0.2002,
+      "0.95": 8.8824
+    }
+  },
+  "zero_relevant_questions": [
+    "E06"
+  ],
+  "guidelines_version": "1.1",
+  "recency_cutoff": "2025-11-04",
+  "recency_capped_judgments": 12,
+  "both_sides_coverage": {
+    "dense": {
+      "fully_covered": 5,
+      "questions": 8
+    },
+    "bm25": {
+      "fully_covered": 5,
+      "questions": 8
+    },
+    "hybrid_rrf": {
+      "fully_covered": 6,
+      "questions": 8
+    }
+  },
+  "official": {
+    "overall": {
+      "dense": {
+        "mrr": 0.8876,
+        "hit": 0.9767,
+        "precision": 0.7302,
+        "recall": 0.5554,
+        "ndcg": 0.7815
+      },
+      "bm25": {
+        "mrr": 0.7461,
+        "hit": 0.8605,
+        "precision": 0.6233,
+        "recall": 0.4306,
+        "ndcg": 0.6732
+      },
+      "hybrid_rrf": {
+        "mrr": 0.8496,
+        "hit": 0.9767,
+        "precision": 0.7395,
+        "recall": 0.5294,
+        "ndcg": 0.7744
+      }
+    },
+    "mrr_ci95": {
+      "dense": [
+        0.81,
+        0.953
+      ],
+      "bm25": [
+        0.628,
+        0.855
+      ],
+      "hybrid_rrf": [
+        0.767,
+        0.926
+      ]
+    },
+    "hybrid_lift_vs_dense_pct": -4.28,
+    "hybrid_lift_vs_bm25_pct": 13.87,
+    "mrr_by_type": {
+      "10k_risk_business": {
+        "dense": 0.9333,
+        "bm25": 0.8889,
+        "hybrid_rrf": 0.9333
+      },
+      "10q_quarterly": {
+        "dense": 0.8611,
+        "bm25": 0.5417,
+        "hybrid_rrf": 0.8083
+      },
+      "8k_event": {
+        "dense": 0.875,
+        "bm25": 0.875,
+        "hybrid_rrf": 0.8125
+      },
+      "comparison": {
+        "dense": 0.8542,
+        "bm25": 0.6562,
+        "hybrid_rrf": 0.7917
+      }
+    }
+  },
+  "lenient": {
+    "overall": {
+      "dense": {
+        "mrr": 0.938,
+        "hit": 0.9767,
+        "precision": 0.8605,
+        "recall": 0.5172,
+        "ndcg": 0.7815
+      },
+      "bm25": {
+        "mrr": 0.8535,
+        "hit": 0.9535,
+        "precision": 0.7814,
+        "recall": 0.4502,
+        "ndcg": 0.6732
+      },
+      "hybrid_rrf": {
+        "mrr": 0.907,
+        "hit": 0.9767,
+        "precision": 0.8605,
+        "recall": 0.5028,
+        "ndcg": 0.7744
+      }
+    },
+    "mrr_ci95": {
+      "dense": [
+        0.872,
+        0.988
+      ],
+      "bm25": [
+        0.765,
+        0.93
+      ],
+      "hybrid_rrf": [
+        0.837,
+        0.965
+      ]
+    },
+    "hybrid_lift_vs_dense_pct": -3.31,
+    "hybrid_lift_vs_bm25_pct": 6.27,
+    "mrr_by_type": {
+      "10k_risk_business": {
+        "dense": 0.9667,
+        "bm25": 0.9667,
+        "hybrid_rrf": 1.0
+      },
+      "10q_quarterly": {
+        "dense": 0.9583,
+        "bm25": 0.725,
+        "hybrid_rrf": 0.9167
+      },
+      "8k_event": {
+        "dense": 0.875,
+        "bm25": 0.875,
+        "hybrid_rrf": 0.8125
+      },
+      "comparison": {
+        "dense": 0.9167,
+        "bm25": 0.8125,
+        "hybrid_rrf": 0.8125
+      }
+    }
+  }
+}

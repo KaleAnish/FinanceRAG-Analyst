@@ -1,0 +1,14 @@
+# Runtime dependencies for the deployed API only (no Streamlit, notebooks or build tools).
+# CPU-only PyTorch is installed separately in the Dockerfile to keep the image small.
+fastapi>=0.115,<1
+uvicorn[standard]>=0.30,<1
+pydantic>=2.9
+pandas
+numpy
+pyarrow
+scipy
+faiss-cpu
+sentence-transformers
+litellm
+python-dotenv>=1.0,<2
+boto3>=1.35,<2
