@@ -3,10 +3,10 @@
   "questions": 43,
   "judged": 444,
   "grade_counts": {
-    "3": 160,
-    "2": 139,
-    "0": 76,
-    "1": 69
+    "3": 166,
+    "2": 135,
+    "0": 75,
+    "1": 68
   },
   "latency_seconds": {
     "dense": {
@@ -27,7 +27,8 @@
   ],
   "guidelines_version": "1.1",
   "recency_cutoff": "2025-11-04",
-  "recency_capped_judgments": 12,
+  "recency_capped_judgments": 14,
+  "adjudicated_judgments": 17,
   "both_sides_coverage": {
     "dense": {
       "fully_covered": 5,
@@ -45,30 +46,30 @@
   "official": {
     "overall": {
       "dense": {
-        "mrr": 0.8876,
+        "mrr": 0.8915,
         "hit": 0.9767,
-        "precision": 0.7302,
-        "recall": 0.5554,
-        "ndcg": 0.7815
+        "precision": 0.7395,
+        "recall": 0.56,
+        "ndcg": 0.7804
       },
       "bm25": {
         "mrr": 0.7461,
         "hit": 0.8605,
-        "precision": 0.6233,
-        "recall": 0.4306,
-        "ndcg": 0.6732
+        "precision": 0.6279,
+        "recall": 0.429,
+        "ndcg": 0.6753
       },
       "hybrid_rrf": {
         "mrr": 0.8496,
         "hit": 0.9767,
-        "precision": 0.7395,
-        "recall": 0.5294,
-        "ndcg": 0.7744
+        "precision": 0.7488,
+        "recall": 0.5316,
+        "ndcg": 0.7768
       }
     },
     "mrr_ci95": {
       "dense": [
-        0.81,
+        0.818,
         0.953
       ],
       "bm25": [
@@ -80,7 +81,7 @@
         0.926
       ]
     },
-    "hybrid_lift_vs_dense_pct": -4.28,
+    "hybrid_lift_vs_dense_pct": -4.7,
     "hybrid_lift_vs_bm25_pct": 13.87,
     "mrr_by_type": {
       "10k_risk_business": {
@@ -89,7 +90,7 @@
         "hybrid_rrf": 0.9333
       },
       "10q_quarterly": {
-        "dense": 0.8611,
+        "dense": 0.875,
         "bm25": 0.5417,
         "hybrid_rrf": 0.8083
       },
@@ -111,22 +112,22 @@
         "mrr": 0.938,
         "hit": 0.9767,
         "precision": 0.8605,
-        "recall": 0.5172,
-        "ndcg": 0.7815
+        "recall": 0.5098,
+        "ndcg": 0.7804
       },
       "bm25": {
-        "mrr": 0.8535,
-        "hit": 0.9535,
-        "precision": 0.7814,
-        "recall": 0.4502,
-        "ndcg": 0.6732
+        "mrr": 0.8581,
+        "hit": 0.9767,
+        "precision": 0.786,
+        "recall": 0.4577,
+        "ndcg": 0.6753
       },
       "hybrid_rrf": {
         "mrr": 0.907,
         "hit": 0.9767,
         "precision": 0.8605,
-        "recall": 0.5028,
-        "ndcg": 0.7744
+        "recall": 0.4986,
+        "ndcg": 0.7768
       }
     },
     "mrr_ci95": {
@@ -135,7 +136,7 @@
         0.988
       ],
       "bm25": [
-        0.765,
+        0.772,
         0.93
       ],
       "hybrid_rrf": [
@@ -144,7 +145,7 @@
       ]
     },
     "hybrid_lift_vs_dense_pct": -3.31,
-    "hybrid_lift_vs_bm25_pct": 6.27,
+    "hybrid_lift_vs_bm25_pct": 5.69,
     "mrr_by_type": {
       "10k_risk_business": {
         "dense": 0.9667,
@@ -153,7 +154,7 @@
       },
       "10q_quarterly": {
         "dense": 0.9583,
-        "bm25": 0.725,
+        "bm25": 0.7417,
         "hybrid_rrf": 0.9167
       },
       "8k_event": {

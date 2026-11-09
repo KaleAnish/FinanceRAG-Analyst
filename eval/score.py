@@ -65,6 +65,16 @@ def main():
     if missing:
         print(f"WARNING: {len(missing)} pool items are unlabeled; they count as not relevant.")
 
+    adjudicated_path = EVAL_DIR / "v2_adjudicated.csv"
+    adjudicated = 0
+    if adjudicated_path.is_file():
+        adj = pd.read_csv(adjudicated_path, dtype={"qid": str, "chunk_id": str})
+        final = {(r.qid, r.chunk_id): int(r.final) for r in adj.itertuples()}
+        labels = labels.copy()
+        keys = list(zip(labels.qid, labels.chunk_id))
+        labels["relevant"] = [final.get(k, v) for k, v in zip(keys, labels.relevant)]
+        adjudicated = sum(k in final for k in keys)
+        print(f"Adjudication: {adjudicated} first-pass labels replaced by adjudicated grades.")
     grades = {q: dict(zip(g.chunk_id, g.relevant.astype(int))) for q, g in labels.groupby("qid")}
     filing_date = dict(zip(pool.chunk_id, pool.filing_date))
     recency_qids = {q for q, meta in questions.items() if "recent" in meta.get("question", "").lower()}
@@ -157,6 +167,7 @@ def main():
         "guidelines_version": "1.1",
         "recency_cutoff": RECENCY_CUTOFF,
         "recency_capped_judgments": capped,
+        "adjudicated_judgments": adjudicated,
     }
     if len(coverage):
         out["both_sides_coverage"] = {

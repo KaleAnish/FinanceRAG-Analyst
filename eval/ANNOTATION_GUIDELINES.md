@@ -33,6 +33,10 @@ Adopted from the TREC Deep Learning track passage-judgment scale (NIST, 2019–2
 
 After all labels are collected, a random 10% sample (seed fixed) is re-labeled blind without access to the first labels. Agreement is reported as **linearly weighted Cohen's kappa** on the 0–3 scale and unweighted kappa on the binarized labels.
 
+## Adjudication
+
+Audit passages whose first-pass and audit grades differ are resolved in an unblinded adjudication pass (`eval/adjudicate_app.py`), with both grades visible, applying these guidelines. Adjudicated grades (`eval/v2_adjudicated.csv`, with a one-line reason) replace the first-pass grade for scoring. Agreement statistics are always reported on the original, pre-adjudication passes.
+
 ## Pooling
 
 Top-5 results from each of three retrieval systems (dense BGE, BM25, hybrid RRF) per question, deduplicated. All pooled passages are judged; metrics are computed at depth 5, so no unjudged passages are scored.
