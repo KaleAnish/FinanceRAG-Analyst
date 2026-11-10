@@ -188,6 +188,7 @@ def create_app(service_factory=None):
             allow_origin_regex=origin_regex,
             allow_methods=["GET", "POST", "OPTIONS"],
             allow_headers=["Content-Type"],
+            expose_headers=["Retry-After"],
             max_age=600,
         )
 
