@@ -1,266 +1,142 @@
-# FinanceRAG-Analyst
+# UCR Crawler Query Interface
 
-![Python](https://img.shields.io/badge/Python-3.11-blue)
-![RAG](https://img.shields.io/badge/RAG-Hybrid-success)
-![FAISS](https://img.shields.io/badge/FAISS-Vector_Search-orange)
-![License](https://img.shields.io/badge/License-MIT-green)
+This project supports two retrieval backends for Part B:
 
-<p align="center">
-  <img src="screenshots/FinRAG.png" width="100%">
-</p>
+- `lucene`: sparse retrieval through Elasticsearch
+- `bert`: dense retrieval through DistilBERT embeddings stored in FAISS
 
-> Retrieval-Augmented Financial Intelligence over SEC EDGAR filings using hybrid retrieval (FAISS + BM25 + RRF), metadata-aware search, and citation-grounded LLM reasoning.
+`query_cli.py` can run either backend or both from the command prompt.
 
----
+## Quick Start
 
-## Overview
+Open PowerShell in:
 
-FinanceRAG-Analyst is a Retrieval-Augmented Generation (RAG) system designed to answer financial research questions directly from SEC EDGAR filings.
-
-Instead of relying solely on a large language model's internal knowledge, the system retrieves relevant sections from SEC filings using a hybrid dense+sparse retrieval pipeline before generating grounded, citation-backed responses.
-
-The project focuses on reducing hallucinations while improving explainability through evidence-based retrieval and source citations.
-
----
-
-## Motivation
-
-Financial filings contain high-value information about:
-
-- Business strategy
-- Risk factors
-- Capital expenditures
-- AI initiatives
-- Geographic exposure
-- Supply-chain dependencies
-- Revenue drivers
-- Regulatory risks
-
-However, these filings are often hundreds of pages long.
-
-FinanceRAG-Analyst enables analysts, students, and researchers to query these filings using natural language while remaining grounded in the original SEC documents.
-
----
-
-# System Architecture
-
-```
-SEC EDGAR Filings
-        │
-        ▼
-Data Collection
-        │
-        ▼
-Cleaning & Parsing
-        │
-        ▼
-Semantic Chunking
-        │
-        ▼
-Metadata Extraction
-        │
-        ▼
-Embedding Generation
-(BGE Small v1.5)
-        │
-        ├──────────────┐
-        ▼              ▼
-     FAISS          BM25
-(Dense Search)  (Sparse Search)
-        │              │
-        └──────┬───────┘
-               ▼
-    Reciprocal Rank Fusion
-               │
-               ▼
-Metadata Filtering
-               │
-               ▼
-Evidence Guardrails
-               │
-               ▼
-Groq / Gemini LLM
-               │
-               ▼
-Citation-Grounded Answer
+```powershell
+cd \ucr_crawler
 ```
 
----
+## One-Time Setup
 
-# Project Structure
+### 1. Install Python packages
 
-```
-FinanceRAG-Analyst/
-
-├── notebooks/
-│   ├── 01_sec_data_pipeline.ipynb
-│   ├── 02_chunking_metadata.ipynb
-│   ├── 03_hybrid_retrieval.ipynb
-│   └── 04_rag_answering.ipynb
-│
-├── data/
-│   ├── raw/
-│   ├── processed/
-│   ├── indexes/
-│   ├── evaluation/
-│   └── answers/
-│
-├── screenshots/
-│
-├── app/
-│
-├── requirements.txt
-│
-└── README.md
+```powershell
+python -m pip install elasticsearch faiss-cpu torch transformers
 ```
 
----
+### 2. Start Elasticsearch
 
-# Features
+This project expects Elasticsearch at `http://localhost:9200`.
 
-- SEC EDGAR filing ingestion
-- Metadata-aware semantic chunking
-- Dense retrieval using FAISS
-- Sparse retrieval using BM25
-- Hybrid retrieval using Reciprocal Rank Fusion (RRF)
-- Automatic retrieval evaluation
-- Company-aware filtering
-- Citation-grounded answer generation
-- Provider-flexible LLM support (Groq / Gemini)
-- Basic hallucination and evidence guardrails
+Example:
 
----
+```powershell
+cd C:\ES\elasticsearch-9.3.0
+.\bin\elasticsearch.bat
+```
 
-# Tech Stack
+Keep that terminal open while using Lucene mode.
 
-### Data Processing
+### 3. Make sure the Elasticsearch index exists
 
-- Python
-- Pandas
-- NumPy
+If needed, build the sparse index:
 
-### Retrieval
+```powershell
+cd C:\Users\tangd\Downloads\ucr_crawler
+python .\lucene_es\index_docs.py --jsonl .\crawl_out\crawl_data_lucene.jsonl --index ucr_pages
+```
 
-- FAISS
-- BM25
-- Sentence Transformers
-- BAAI/bge-small-en-v1.5
+### 4. Make sure the dense index exists
 
-### Large Language Models
+Dense files should already be present here:
 
-- Groq API
-- Google Gemini API
+- `Dense Indexing\dense_distilbert.index`
+- `Dense Indexing\dense_distilbert_meta.jsonl`
 
-### Evaluation
+If you need to rebuild them:
 
-- Reciprocal Rank Fusion (RRF)
-- Retrieval benchmarking
-- Citation validation
+```powershell
+python ".\Dense Indexing\dense_index_distilbert_faiss.py" ^
+  --input ".\crawl_out\crawl_data.jsonl" ^
+  --out_index ".\Dense Indexing\dense_distilbert.index" ^
+  --out_meta ".\Dense Indexing\dense_distilbert_meta.jsonl" ^
+  --batch_size 8 ^
+  --log_every 100 ^
+  --save_every_docs 250
+```
 
----
+## Using the Interface
 
-# Sample Questions
+### Lucene only
 
-Example questions supported by the system:
+```powershell
+python .\query_cli.py --engine lucene --query "nasa mission" --topk 5 --es_host http://localhost:9200 --es_index ucr_pages
+```
 
-- How does Nvidia discuss demand for AI infrastructure?
-- What risks does Apple mention about China?
-- Compare Microsoft's and Google's AI strategy.
-- How does Amazon discuss AWS capital expenditures?
-- What does Google say about advertising revenue?
+### BERT only
 
----
+```powershell
+python .\query_cli.py --engine bert --query "nasa mission" --topk 5 --bert_index ".\Dense Indexing\dense_distilbert.index" --bert_meta ".\Dense Indexing\dense_distilbert_meta.jsonl"
+```
 
-# Repository Workflow
+### Compare both
 
-Notebook 1
+```powershell
+python .\query_cli.py --engine both --query "nasa mission" --topk 5 --es_host http://localhost:9200 --es_index ucr_pages --bert_index ".\Dense Indexing\dense_distilbert.index" --bert_meta ".\Dense Indexing\dense_distilbert_meta.jsonl"
+```
 
-- Download SEC EDGAR filings
-- Parse documents
-- Build unified dataset
+## Interactive Mode
 
-Notebook 2
+This is the easiest way to use the interface like a mini text-based search UI:
 
-- Semantic chunking
-- Metadata extraction
-- Embedding generation
+```powershell
+python .\query_cli.py --engine both --topk 5 --es_host http://localhost:9200 --es_index ucr_pages --bert_index ".\Dense Indexing\dense_distilbert.index" --bert_meta ".\Dense Indexing\dense_distilbert_meta.jsonl"
+```
 
-Notebook 3
-
-- FAISS retrieval
-- BM25 retrieval
-- Hybrid RRF retrieval
-- Retrieval evaluation
-- Best configuration selection
-
-Notebook 4
-
-- Provider-flexible RAG pipeline
-- Citation generation
-- Company-aware retrieval
-- Evidence guardrails
-- Grounded answer generation
-
----
-
-# Future Improvements
-
-- Streamlit web application
-- FastAPI backend
-- Docker deployment
-- Live SEC filing updates
-- Multi-document reasoning
-- Agentic financial workflows
-- Advanced RAG evaluation
-- Support for earnings call transcripts and financial reports beyond SEC filings
-
----
-
-# Example Output
+You will then see prompts like:
 
 ```text
-Question:
-What risks does Apple mention about China?
-
-↓
-
-Answer:
-Apple notes several risks related to operations and supply-chain dependencies
-associated with China, including manufacturing concentration, geopolitical
-tensions, and regulatory uncertainty. [S1][S2]
-
-↓
-
-Sources
-
-[S1] Apple 10-K (2024)
-
-[S2] Apple 10-Q (2024)
+Interactive mode. Type 'exit' to quit.
+Choose index [lucene/bert/both] (default: both):
+Query>
 ```
 
----
+Usage:
 
-# Why Hybrid Retrieval?
+1. Type `lucene`, `bert`, or `both`
+2. Enter a query
+3. Review the ranked top-k results
+4. Type `exit` to quit
 
-Dense retrieval captures semantic similarity.
+Note: BERT mode may print a one-time DistilBERT model load report when the program starts. This is harmless and does not affect querying.
 
-Sparse retrieval captures exact keyword matches.
+## Good Demo Queries
 
-Reciprocal Rank Fusion combines both approaches to improve retrieval quality while maintaining robustness across diverse financial queries.
+### Strong Lucene demos
 
----
+```powershell
+python .\query_cli.py --engine lucene --query "recommender systems collaborative filtering" --topk 5 --es_host http://localhost:9200 --es_index ucr_pages
+python .\query_cli.py --engine lucene --query "capital punishment history" --topk 5 --es_host http://localhost:9200 --es_index ucr_pages
+python .\query_cli.py --engine lucene --query "genocide convention definition" --topk 5 --es_host http://localhost:9200 --es_index ucr_pages
+```
 
-# Disclaimer
+### Compare Lucene and BERT
 
-This project is intended for research and educational purposes.
+```powershell
+python .\query_cli.py --engine both --query "nasa mission" --topk 5 --es_host http://localhost:9200 --es_index ucr_pages --bert_index ".\Dense Indexing\dense_distilbert.index" --bert_meta ".\Dense Indexing\dense_distilbert_meta.jsonl"
+python .\query_cli.py --engine both --query "artemis mission and moon program" --topk 5 --es_host http://localhost:9200 --es_index ucr_pages --bert_index ".\Dense Indexing\dense_distilbert.index" --bert_meta ".\Dense Indexing\dense_distilbert_meta.jsonl"
+```
 
-Responses are generated only from retrieved SEC filing context and should not be interpreted as financial or investment advice.
+## Evaluation
 
----
+Run evaluation on the sample query and qrels files:
 
-# Author
+```powershell
+python .\evaluate_partb.py --engine both --queries ".\eval\queries_sample.jsonl" --qrels ".\eval\qrels_sample.jsonl" --k 5 --out_prefix ".\eval\partb_eval_sample" --es_host http://localhost:9200 --es_index ucr_pages --bert_index ".\Dense Indexing\dense_distilbert.index" --bert_meta ".\Dense Indexing\dense_distilbert_meta.jsonl"
+```
 
-**Anish A. Kale**
+Outputs are written under `eval\`.
 
-M.S. Computational Data Science  
-UC Riverside
+## Notes
+
+- Lucene retrieval is currently the stronger backend on the sample tests.
+- BERT retrieval is fully integrated and selectable in the interface, but its current dense ranking quality is weaker with the present model configuration.
