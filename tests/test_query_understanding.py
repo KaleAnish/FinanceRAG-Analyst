@@ -191,3 +191,37 @@ def test_interleave_handles_empty():
     main = _evidence([("m1", "BA", "2026-01-30", 1)])
     assert list(interleave_pools(main, None)["chunk_id"]) == ["m1"]
     assert list(interleave_pools(None, main)["chunk_id"]) == ["m1"]
+
+
+EXHIBIT_INDEX = (
+    "1 and Extension, dated as of August 24, 2026, to Five-Year Credit Agreement, dated as of May 15, 2024, "
+    "among The Boeing Company (Exhibit 10.2 to the Company's Current Report on Form 8-K dated August 24, 2026) "
+    "10.3 | Amendment No. 1 and Extension (Exhibit 10.3 to the Company's Current Report on Form 8-K) "
+    "10.4 | Deferred Compensation Plan for Directors of The Boeing Company* 15 | Letter from Independent "
+    "Registered Public Accounting Firm regarding unaudited interim financial information 22 | Subsidiary "
+    "Guarantor 31.1 | Certification of Chief Executive Officer pursuant to Section 302 of the Sarbanes-Oxley "
+    "Act of 2002 31.2 | Certification of Chief Financial Officer pursuant to Section 302 of the Sarbanes-Oxley "
+    "Act of 2002 32.1 | Certification of Chief Executive Officer pursuant to Section 906 of the Sarbanes-Oxley "
+    "Act of 2002 101.INS | Inline XBRL Instance Document 101.SCH | Inline XBRL Taxonomy Extension Schema Document"
+)
+
+MDNA = (
+    "Commercial Airplanes revenues increased by $4.2 billion in the third quarter of 2026, driven by higher "
+    "737 deliveries. We delivered 120 737 aircraft in the quarter and continue to work with the FAA on the "
+    "production rate increase to 47 per month. Our earnings release is furnished as Exhibit 99.1."
+)
+
+
+def test_boilerplate_scores():
+    from finance_rag.query_understanding import boilerplate_score
+    assert boilerplate_score(EXHIBIT_INDEX) >= 6
+    assert boilerplate_score(MDNA) < 6
+
+
+def test_drop_boilerplate():
+    import pandas as pd
+    from finance_rag.query_understanding import drop_boilerplate
+    ev = pd.DataFrame({"chunk_id": ["x", "m"], "text": [EXHIBIT_INDEX, MDNA]})
+    assert list(drop_boilerplate(ev)["chunk_id"]) == ["m"]
+    only_junk = pd.DataFrame({"chunk_id": ["x"], "text": [EXHIBIT_INDEX]})
+    assert list(drop_boilerplate(only_junk)["chunk_id"]) == ["x"]

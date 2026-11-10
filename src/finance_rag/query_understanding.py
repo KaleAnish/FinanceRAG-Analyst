@@ -382,3 +382,37 @@ def interleave_pools(main, fresh):
     if key:
         merged = merged.drop_duplicates(subset=key, keep="first").reset_index(drop=True)
     return merged
+
+
+# ---------------------------------------------------------------- boilerplate
+
+_BOILERPLATE_PATTERNS = [
+    re.compile(r"(?<![\d.])(?:10|31|32|101|104)\.\d{1,3}(?:\.\d+)?(?![\d.])"),  # exhibit numbers
+    re.compile(r"sarbanes-oxley", re.I),
+    re.compile(r"inline xbrl", re.I),
+    re.compile(r"\bcertification of (?:chief|principal)", re.I),
+    re.compile(r"\bexhibit \d", re.I),
+    re.compile(r"pursuant to the requirements of the securities exchange act", re.I),
+    re.compile(r"indicate by check mark", re.I),
+    re.compile(r"commission file number", re.I),
+    re.compile(r"\b(?:incorporated (?:herein )?by reference)\b", re.I),
+    re.compile(r"\binteractive data file\b", re.I),
+]
+
+
+def boilerplate_score(text: str) -> int:
+    """How strongly a passage looks like an exhibit index, signature page,
+    certification list or cover page (pattern hits, counted)."""
+    if not isinstance(text, str):
+        return 0
+    return sum(len(p.findall(text)) for p in _BOILERPLATE_PATTERNS)
+
+
+def drop_boilerplate(evidence, threshold: int = 6):
+    """Remove boilerplate passages; keep everything if that would empty the list."""
+    if evidence is None or len(evidence) == 0 or "text" not in evidence.columns:
+        return evidence
+    keep = evidence["text"].map(boilerplate_score) < threshold
+    if not keep.any():
+        return evidence
+    return evidence[keep].reset_index(drop=True)

@@ -10,7 +10,8 @@ TICKER_PATTERN = re.compile(r'^[A-Z0-9][A-Z0-9.-]{0,9}$')
 
 from .retrieval import FinanceRAGRetriever
 from .query_understanding import (
-    fresh_window_start, interleave_pools, plan_query, rerank_by_recency,
+    drop_boilerplate, fresh_window_start, interleave_pools, plan_query,
+    rerank_by_recency,
 )
 from .generation import GenerationConfig, generate_answer
 
@@ -179,6 +180,7 @@ class FinanceRAGService:
             except ValueError:
                 fresh = None
             evidence = interleave_pools(evidence, fresh)
+        evidence = drop_boilerplate(evidence)
         if use_recency and evidence is not None and len(evidence) > 0:
             evidence = rerank_by_recency(evidence, top_k=top_k)
         elif evidence is not None and len(evidence) > top_k:
