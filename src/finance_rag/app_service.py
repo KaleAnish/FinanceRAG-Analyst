@@ -9,7 +9,9 @@ SUPPORTED_FORM_TYPES = {"10-K", "10-Q", "8-K"}
 TICKER_PATTERN = re.compile(r'^[A-Z0-9][A-Z0-9.-]{0,9}$')
 
 from .retrieval import FinanceRAGRetriever
-from .query_understanding import plan_query, rerank_by_recency
+from .query_understanding import (
+    fresh_window_start, interleave_pools, plan_query, rerank_by_recency,
+)
 from .generation import GenerationConfig, generate_answer
 
 
@@ -169,6 +171,14 @@ class FinanceRAGService:
             # The inferred window had nothing; fall back to all dates.
             clean_start = clean_end = None
             evidence = _retrieve(None, None, fetch_k)
+        if use_recency and not (clean_start or clean_end or clean_filing_date):
+            # Recent filings always get a seat: search the last 12 months too
+            # and merge, so a strong older match can't crowd them out.
+            try:
+                fresh = _retrieve(fresh_window_start(), None, fetch_k)
+            except ValueError:
+                fresh = None
+            evidence = interleave_pools(evidence, fresh)
         if use_recency and evidence is not None and len(evidence) > 0:
             evidence = rerank_by_recency(evidence, top_k=top_k)
         elif evidence is not None and len(evidence) > top_k:

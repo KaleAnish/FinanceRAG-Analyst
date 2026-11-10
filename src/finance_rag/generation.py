@@ -37,6 +37,13 @@ TIME (mandatory)
    January 2024").
 6. When evidence spans several periods, order it chronologically, most
    recent first, and say what changed over time.
+   Build the answer on the most recent relevant evidence. Use older
+   filings only as background and label them as earlier ("back in its
+   October 2024 10-Q, ..."). Do not skip a newer source that addresses
+   the question.
+6b. Text from the independent auditor's report (critical audit matters,
+   "we performed", "our audit") is the auditor's work, not a statement
+   by the company. Attribute it to the auditor or leave it out.
 
 FIGURES (mandatory when present)
 7. When the evidence contains quantities relevant to the question (revenue,

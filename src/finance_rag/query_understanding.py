@@ -354,3 +354,31 @@ def rerank_by_recency(evidence, top_k: int, today: Optional[date] = None,
     if "rank" in df.columns:
         df["rank"] = range(1, len(df) + 1)
     return df
+
+
+def fresh_window_start(today: Optional[date] = None, days: int = 365) -> str:
+    """Start date (ISO) of the 'recent filings' pool."""
+    return ((today or date.today()) - timedelta(days=days)).isoformat()
+
+
+def interleave_pools(main, fresh):
+    """Merge the main results with a recent-filings pool, alternating rows so
+    recent passages get a fair position, and dropping duplicate passages."""
+    import pandas as pd
+
+    if fresh is None or len(fresh) == 0:
+        return main
+    if main is None or len(main) == 0:
+        return fresh
+    a, b = main.reset_index(drop=True), fresh.reset_index(drop=True)
+    rows = []
+    for i in range(max(len(a), len(b))):
+        if i < len(a):
+            rows.append(a.iloc[i])
+        if i < len(b):
+            rows.append(b.iloc[i])
+    merged = pd.DataFrame(rows).reset_index(drop=True)
+    key = "chunk_id" if "chunk_id" in merged.columns else None
+    if key:
+        merged = merged.drop_duplicates(subset=key, keep="first").reset_index(drop=True)
+    return merged

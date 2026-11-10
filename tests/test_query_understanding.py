@@ -168,3 +168,26 @@ def test_recency_handles_empty():
     from finance_rag.query_understanding import rerank_by_recency
     import pandas as pd
     assert rerank_by_recency(pd.DataFrame(), top_k=5) is not None
+
+
+def test_interleave_pools_alternates_and_dedupes():
+    from finance_rag.query_understanding import interleave_pools
+    main = _evidence([("m1", "NVDA", "2024-05-29", 1), ("m2", "NVDA", "2024-05-29", 2), ("dup", "NVDA", "2026-08-26", 3)])
+    fresh = _evidence([("dup", "NVDA", "2026-08-26", 1), ("f2", "NVDA", "2026-05-20", 2)])
+    out = interleave_pools(main, fresh)
+    assert list(out["chunk_id"]) == ["m1", "dup", "m2", "f2"]
+
+
+def test_interleave_then_rerank_puts_recent_first():
+    from finance_rag.query_understanding import interleave_pools, rerank_by_recency
+    main = _evidence([(f"old{i}", "NVDA", "2024-05-29", i + 1) for i in range(5)])
+    fresh = _evidence([("new1", "NVDA", "2026-08-26", 1)])
+    out = rerank_by_recency(interleave_pools(main, fresh), top_k=3, today=TODAY)
+    assert out["chunk_id"].iloc[0] == "new1"
+
+
+def test_interleave_handles_empty():
+    from finance_rag.query_understanding import interleave_pools
+    main = _evidence([("m1", "BA", "2026-01-30", 1)])
+    assert list(interleave_pools(main, None)["chunk_id"]) == ["m1"]
+    assert list(interleave_pools(None, main)["chunk_id"]) == ["m1"]
