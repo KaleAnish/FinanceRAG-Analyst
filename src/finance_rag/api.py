@@ -227,7 +227,7 @@ def create_app(service_factory=None):
     def health():
         return {"status": "alive"}
 
-    @application.get("/ready")
+    @application.api_route("/ready", methods=["GET", "HEAD"])
     def ready():
         if application.state.service is None:
             error = application.state.startup_error

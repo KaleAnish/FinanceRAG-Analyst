@@ -253,18 +253,39 @@ def normalize_generation(payload: dict) -> dict:
     }
 
 
+def _normalize_citations(text):
+    """Rewrite 【S1】, (S1), and ranges like [S1-S3] into the canonical [S1, S2, S3]."""
+    if not isinstance(text, str):
+        return text
+    text = text.replace("\u3010", "[").replace("\u3011", "]")
+    text = re.sub(r"\((S\d+(?:\s*[,;\u2010-\u2014\u2212-]\s*S?\d+)*)\)", r"[\1]", text)
+
+    def expand(m):
+        out = []
+        for part in re.split(r"\s*[,;]\s*", m.group(1)):
+            r = re.fullmatch(r"S(\d+)\s*[\u2010-\u2014\u2212-]\s*S?(\d+)", part)
+            if r and int(r.group(1)) <= int(r.group(2)) <= int(r.group(1)) + 20:
+                out += [f"S{i}" for i in range(int(r.group(1)), int(r.group(2)) + 1)]
+            else:
+                out.append(part)
+        return "[" + ", ".join(out) + "]"
+
+    return re.sub(r"\[(S\d+(?:\s*[,;\u2010-\u2014\u2212-]\s*S?\d+)*)\]", expand, text)
+
+
 def validate_citations(record: dict, generation: dict) -> dict:
     valid_labels = {
         str(item["citation_label"])
         for item in record["selected_evidence"]
     }
+    generation["answer"] = _normalize_citations(generation["answer"])
     cited_labels = [
         label
         for group in re.findall(r"\[(S\d+(?:\s*[,;]\s*S\d+)*)\]", generation["answer"])
         for label in re.split(r"\s*[,;]\s*", group)
     ]
     if not cited_labels and not generation["abstained"]:
-        logger.warning("Uncited answer rejected: %.300s", generation["answer"])
+        logger.warning("Uncited answer rejected: %s", generation["answer"])
     invalid_labels = sorted(set(cited_labels) - valid_labels)
 
     checks = {
