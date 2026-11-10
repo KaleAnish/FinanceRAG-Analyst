@@ -312,3 +312,45 @@ def plan_query(question: str, available_tickers: Optional[Iterable[str]] = None,
         plan.notes.append("time: " + t["label"])
     plan.notes.append("intent: " + intent)
     return plan
+
+
+# ---------------------------------------------------------------- recency
+
+def rerank_by_recency(evidence, top_k: int, today: Optional[date] = None,
+                      half_life_days: int = 1095, rrf_k: int = 30):
+    """Re-rank retrieved passages so newer filings win unless an older one is
+    clearly more relevant.
+
+    Relevance is taken from the incoming order (1 / (rrf_k + position)), then
+    multiplied by 0.5 ** (age / half_life). With a 3-year half-life, a 2026
+    filing at position 10 beats a 2024 filing at position 1. With several
+    companies, each company is ranked separately and the results alternate,
+    so a comparison never loses one side.
+    """
+    import pandas as pd
+
+    if evidence is None or len(evidence) == 0:
+        return evidence
+    today = today or date.today()
+    df = evidence.reset_index(drop=True).copy()
+    ages = (pd.Timestamp(today) - pd.to_datetime(df["filing_date"])).dt.days.clip(lower=0).to_numpy()
+    relevance = 1.0 / (rrf_k + df.index.to_numpy() + 1)
+    df["_score"] = relevance * (0.5 ** (ages / half_life_days))
+
+    if "ticker" in df.columns and df["ticker"].nunique() > 1:
+        groups = [g.sort_values("_score", ascending=False, kind="stable")
+                  for _, g in df.groupby("ticker", sort=False)]
+        order, i = [], 0
+        while len(order) < len(df):
+            for g in groups:
+                if i < len(g):
+                    order.append(g.index[i])
+            i += 1
+        df = df.loc[order]
+    else:
+        df = df.sort_values("_score", ascending=False, kind="stable")
+
+    df = df.head(top_k).drop(columns="_score").reset_index(drop=True)
+    if "rank" in df.columns:
+        df["rank"] = range(1, len(df) + 1)
+    return df

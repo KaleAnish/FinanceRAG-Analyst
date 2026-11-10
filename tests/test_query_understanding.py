@@ -132,3 +132,39 @@ def test_plan_lookup_without_company():
 def test_lowercase_tickers_only_when_safe():
     tickers, _ = detect_companies("nvda vs amd, and what does it cost? ms word dis", CORPUS)
     assert tickers == ["NVDA", "AMD"]
+
+
+def _evidence(rows):
+    import pandas as pd
+    return pd.DataFrame(rows, columns=["chunk_id", "ticker", "filing_date", "rank"])
+
+
+def test_recency_promotes_newer_filing():
+    from finance_rag.query_understanding import rerank_by_recency
+    ev = _evidence([("old", "BA", "2024-01-31", 1)] + [(f"x{i}", "BA", "2023-01-01", i + 2) for i in range(8)]
+                   + [("new", "BA", "2026-07-29", 10)])
+    out = rerank_by_recency(ev, top_k=5, today=TODAY)
+    assert out["chunk_id"].iloc[0] == "new"
+    assert list(out["rank"]) == [1, 2, 3, 4, 5]
+
+
+def test_recency_keeps_strong_relevance_for_same_age():
+    from finance_rag.query_understanding import rerank_by_recency
+    ev = _evidence([("a", "BA", "2026-01-30", 1), ("b", "BA", "2026-01-30", 2)])
+    out = rerank_by_recency(ev, top_k=2, today=TODAY)
+    assert list(out["chunk_id"]) == ["a", "b"]
+
+
+def test_recency_alternates_companies():
+    from finance_rag.query_understanding import rerank_by_recency
+    ev = _evidence([(f"n{i}", "NVDA", "2026-08-26", i + 1) for i in range(6)]
+                   + [("a1", "AMD", "2025-08-06", 7), ("a2", "AMD", "2026-08-05", 8)])
+    out = rerank_by_recency(ev, top_k=5, today=TODAY)
+    assert list(out["ticker"]) == ["NVDA", "AMD", "NVDA", "AMD", "NVDA"]
+    assert out["chunk_id"].iloc[1] == "a2"
+
+
+def test_recency_handles_empty():
+    from finance_rag.query_understanding import rerank_by_recency
+    import pandas as pd
+    assert rerank_by_recency(pd.DataFrame(), top_k=5) is not None

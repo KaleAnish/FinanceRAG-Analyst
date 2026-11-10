@@ -9,6 +9,7 @@ SUPPORTED_FORM_TYPES = {"10-K", "10-Q", "8-K"}
 TICKER_PATTERN = re.compile(r'^[A-Z0-9][A-Z0-9.-]{0,9}$')
 
 from .retrieval import FinanceRAGRetriever
+from .query_understanding import plan_query, rerank_by_recency
 from .generation import GenerationConfig, generate_answer
 
 
@@ -63,6 +64,7 @@ class FinanceRAGService:
         top_k: int = 5,
         start_date: str | None = None,
         end_date: str | None = None,
+        auto_plan: bool = True,
     ) -> ResearchResponse:
         if not isinstance(query, str):
             raise ValueError("Enter a research question.")
@@ -112,16 +114,65 @@ class FinanceRAGService:
         if clean_start and clean_end and clean_start > clean_end:
             raise ValueError("The start date must be on or before the end date.")
 
-        evidence = self.retriever.search(
-            query,
-            method=method,
-            ticker=clean_ticker,
-            form_type=form_type,
-            filing_date=clean_filing_date,
-            start_date=clean_start,
-            end_date=clean_end,
-            top_k=top_k,
-        )
+        # Layer B1: read companies and time phrases from the question, unless
+        # the user already set those filters by hand. Hand-set filters win.
+        available = getattr(self.retriever, "available_tickers", None)
+        plan = plan_query(query, available) if (auto_plan and available) else None
+        use_recency = False
+        planned_dates = False
+        if plan is not None:
+            user_set_tickers = clean_ticker is not None
+            user_set_dates = any([clean_filing_date, clean_start, clean_end])
+            if not user_set_tickers and plan.tickers:
+                planned = plan.tickers[:MAX_TICKERS]
+                clean_ticker = planned[0] if len(planned) == 1 else planned
+            elif not user_set_tickers and plan.uncovered:
+                names = ", ".join(name.title() for name in plan.uncovered)
+                return ResearchResponse(
+                    query=query,
+                    answer="",
+                    abstained=True,
+                    abstention_reason=(
+                        f"{names} isn't among the companies covered yet. "
+                        "Pick a company from the list to search its filings."
+                    ),
+                    sources=[],
+                    citation_validation={},
+                    provider=self.config.provider,
+                    model=self.config.model,
+                    policy_version=self.config.policy_version,
+                )
+            if not user_set_dates and plan.start_date:
+                clean_start, clean_end = plan.start_date, plan.end_date
+                planned_dates = True
+            use_recency = plan.recency
+
+        def _retrieve(start, end, k):
+            return self.retriever.search(
+                query,
+                method=method,
+                ticker=clean_ticker,
+                form_type=form_type,
+                filing_date=clean_filing_date,
+                start_date=start,
+                end_date=end,
+                top_k=k,
+            )
+
+        fetch_k = max(top_k * 4, 20) if use_recency else top_k
+        try:
+            evidence = _retrieve(clean_start, clean_end, fetch_k)
+        except ValueError:
+            fetch_k = top_k
+            evidence = _retrieve(clean_start, clean_end, fetch_k)
+        if planned_dates and (evidence is None or len(evidence) == 0):
+            # The inferred window had nothing; fall back to all dates.
+            clean_start = clean_end = None
+            evidence = _retrieve(None, None, fetch_k)
+        if use_recency and evidence is not None and len(evidence) > 0:
+            evidence = rerank_by_recency(evidence, top_k=top_k)
+        elif evidence is not None and len(evidence) > top_k:
+            evidence = evidence.head(top_k)
 
         if evidence is None or len(evidence) == 0:
             return ResearchResponse(
