@@ -9,6 +9,7 @@ SUPPORTED_FORM_TYPES = {"10-K", "10-Q", "8-K"}
 TICKER_PATTERN = re.compile(r'^[A-Z0-9][A-Z0-9.-]{0,9}$')
 
 from .retrieval import FinanceRAGRetriever
+import time as _time
 from .query_understanding import (
     drop_boilerplate, fresh_window_start, interleave_pools, plan_query,
     rerank_by_recency,
@@ -36,6 +37,7 @@ class ResearchResponse:
     model: str
     policy_version: str
     error: str | None = None
+    metrics: dict[str, Any] | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -117,6 +119,7 @@ class FinanceRAGService:
         if clean_start and clean_end and clean_start > clean_end:
             raise ValueError("The start date must be on or before the end date.")
 
+        _retrieval_started = _time.perf_counter()
         # Layer B1: read companies and time phrases from the question, unless
         # the user already set those filters by hand. Hand-set filters win.
         available = getattr(self.retriever, "available_tickers", None)
@@ -180,12 +183,14 @@ class FinanceRAGService:
             except ValueError:
                 fresh = None
             evidence = interleave_pools(evidence, fresh)
+        n_candidates = 0 if evidence is None else len(evidence)
         evidence = drop_boilerplate(evidence)
         if use_recency and evidence is not None and len(evidence) > 0:
             evidence = rerank_by_recency(evidence, top_k=top_k)
         elif evidence is not None and len(evidence) > top_k:
             evidence = evidence.head(top_k)
 
+        retrieval_seconds = _time.perf_counter() - _retrieval_started
         if evidence is None or len(evidence) == 0:
             return ResearchResponse(
                 query=query,
@@ -225,8 +230,31 @@ class FinanceRAGService:
                 normalised[key] = value
             sources.append(normalised)
 
+        _validation = result.get("citation_validation") or {}
+        _usage = result.get("usage") or {}
+        _chunks = getattr(self.retriever, "chunks_df", None)
+        _metrics = {
+            "corpus_passages": None if _chunks is None else int(len(_chunks)),
+            "candidates": n_candidates,
+            "evidence": len(sources),
+            "cited": len(_validation.get("unique_cited_labels") or []),
+            "prompt_tokens": _usage.get("prompt_tokens"),
+            "completion_tokens": _usage.get("completion_tokens"),
+            "total_tokens": _usage.get("total_tokens"),
+            "attempts": result.get("attempts"),
+            "retrieval_seconds": round(retrieval_seconds, 3),
+            "generation_seconds": result.get("generation_seconds"),
+            "plan": None if plan is None else {
+                "tickers": list(plan.tickers),
+                "time_label": plan.time_label,
+                "intent": plan.intent,
+                "start_date": clean_start,
+                "end_date": clean_end,
+            },
+        }
         return ResearchResponse(
             query=query,
+            metrics=_metrics,
             answer=result.get("answer", ""),
             abstained=result.get("abstained", True),
             abstention_reason=result.get("abstention_reason"),

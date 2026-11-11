@@ -375,6 +375,28 @@ def validate_citations(record: dict, generation: dict) -> dict:
     }
 
 
+import threading as _threading
+import time as _time
+
+_usage_local = _threading.local()
+
+
+def _record_usage(response):
+    """Add this call's token usage to the running totals for the current answer."""
+    totals = getattr(_usage_local, "totals", None)
+    if totals is None:
+        return
+    usage = getattr(response, "usage", None)
+    if usage is None and isinstance(response, dict):
+        usage = response.get("usage")
+    if usage is None:
+        return
+    for key in ("prompt_tokens", "completion_tokens", "total_tokens"):
+        value = usage.get(key) if isinstance(usage, dict) else getattr(usage, key, None)
+        if isinstance(value, (int, float)):
+            totals[key] = totals.get(key, 0) + int(value)
+
+
 def _call_model(user_prompt: str, config: GenerationConfig) -> str:
     """Call the configured provider through LiteLLM."""
     try:
@@ -404,6 +426,7 @@ def _call_model(user_prompt: str, config: GenerationConfig) -> str:
         timeout=config.timeout_seconds,
         num_retries=0,
     )
+    _record_usage(response)
 
     choices = getattr(response, "choices", None)
     if choices is None and isinstance(response, dict):
@@ -523,6 +546,8 @@ def generate_answer(
 
     user_prompt = build_user_prompt(record)
     last_error = None
+    _usage_local.totals = {}
+    _gen_started = _time.perf_counter()
 
     for attempt in range(1, config.max_attempts + 1):
         try:
@@ -546,6 +571,8 @@ def generate_answer(
                 "model": config.model,
                 "generation_policy_version": config.policy_version,
                 "attempts": attempt,
+                "usage": dict(_usage_local.totals),
+                "generation_seconds": round(_time.perf_counter() - _gen_started, 3),
             }
         except Exception as exc:
             last_error = exc
